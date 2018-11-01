@@ -67,7 +67,7 @@ def switch_turn():
     # phase 1
     players[turn].reinforce()
     for c in continents:
-        if players[turn] == c:
+        if players[turn] == c.owner:
             c.reinforce_owner()
 
     # phase 2
