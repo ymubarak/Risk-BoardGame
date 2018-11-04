@@ -32,6 +32,7 @@ class Player:
         attacked.n_armies = placement
         self._conquer_bonus += 2
 
+
     def reinforce(self):
         if self._conquer_bonus > 0:
             self._armies += self._conquer_bonus

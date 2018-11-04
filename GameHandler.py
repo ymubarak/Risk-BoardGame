@@ -1,91 +1,67 @@
 from Player import *
 from Territory import *
 from Continent import *
+import Reader
+from Agents import PassiveAgent, PacifistAgent
 
-turn = None
-continents = []
-players = []
-graph = {}
-
-def read_game(file_path):
-    file = open(file_path, "r")
-    try:
-        line = next(file).strip()
-        v = int(line.split(" ")[-1])
-        
-        # create graph map
-        global graph
-        graph = {}
-        for i in range(1, v+1):
-            graph[i] = Territory(i)
-        
-        # read edges
-        line = next(file).strip()
-        e = int(line.split(" ")[-1])
-        for i in range(e):
-            line = next(file)[1:-2] # skip parenthesis
-            edge_pair = line.split(" ")
-            t_from = int(edge_pair[0])
-            t_to = int(edge_pair[1])
-            graph[t_from].add_neighbor(graph[t_to])
-        
-        # read continents
-        line = next(file).strip()
-        p = int(line.split(" ")[-1])
-        for i in range(p):
-            arr = next(file).strip().split(" ")
-            bonus = int(arr[0])
-            territories = []
-            for t_id in arr[1:]:
-                territories.append(graph[int(t_id)])
-            
-            c = Continent(bonus, territories)
-            continents.append(c)
-
-    except StopIteration:
-        pass
+class GameHandler():
     
-    init_game()
+    def __init__(self, file_path):
+        self._turn = 0
+        self._game_ended = False
+        self._graph, self._continents = Reader.read_game(file_path)
+        self._graph_size = len(self.graph())
+        # players options
+        self._player_types = ('Human', 'Passive Agent', 'Agressive Agent', 'Pacifist Agent',
+            'Greedy Agent', 'A-Star Agent', 'A-Star-real-time Agent')
+        self._players = [Player(),PassiveAgent.PassiveAgent()]
+        self._players[0].armies = 3
+        self._players[1].armies = 3
 
-
-def init_game():
-    global players, turn
-    turn = 0
-    players = [Player(), Player()]
-    players[0].armies = 3
-    players[1].armies = 3
-
-
-def play()
-    while True:
-        switch_turn()
-
-
-def switch_turn():
-    global turn
-    turn = 1 if turn==0 else 0
-    # phase 1
-    players[turn].reinforce()
-    for c in continents:
-        if players[turn] == c.owner:
-            c.reinforce_owner()
-
-    # phase 2
-    # if turn == 0 (human turn)
-        # wait for gui interaction/decission
-        # - place armies
-        # - attack ==> choose new placement
-    # else:
-        # TODO: choose an agent to play 
     
+    def switch_turn(self):
+        self._turn = 1 if self._turn==0 else 0
+        # phase 1
+        self._players[self._turn].reinforce()
+        for c in self._continents:
+            if self._players[self._turn] == c.owner:
+                c.reinforce_owner()
 
-# for debugging purpose
-def print_state():
-    space = "    "
-    for i, p in enumerate(players):
-        print("Player{}".format(i+1))
-        print("{}Armies: {}".format(space, p.armies))
-        print("{}Lands:".format(space))
-        for t in p._territories:
-            print("{} tid: {}".format(space*2, t._id))
-            print("{}Armies: {}".format(space*3, t.n_armies))
+        # phase 2
+        # if turn == 0 (human turn)
+            # wait for gui interaction/decission
+            # - place armies
+            # - attack ==> choose new placement
+        # else:
+            # TODO: choose an agent to play 
+
+        player_lands = len(set(self._players[self._turn]._territories))
+        if player_lands == self._graph_size:
+            self._game_ended = True
+
+    
+    def get_game_state(self):
+        return self._turn, self._game_ended
+
+    def graph(self):
+        return self._graph    
+
+    def continents(self):
+        return self._continents
+
+    def player_types(self):
+        return self._player_types
+
+    def players(self):
+        return self._players
+    # for debugging purpose
+    def print_state():
+        space = "    "
+        for i, p in enumerate(self._players):
+            print("Player{}".format(i+1))
+            print("{}Armies: {}".format(space, p.armies))
+            print("{}Lands:".format(space))
+            for t in p._territories:
+                print("{} tid: {}".format(space*2, t.id))
+                print("{}Armies: {}".format(space*3, t.n_armies))
+

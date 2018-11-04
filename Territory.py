@@ -8,6 +8,10 @@ class Territory:
         self._neighbors = []
 
 
+    def id(self):
+        return self._id
+
+
     @property
     def n_armies(self):
         return self._armies
@@ -34,9 +38,9 @@ class Territory:
             raise TypeError
         self._neighbors.append(neighbor)
 
-    @property
-    def neighbors():
-        self._neighbors
+
+    def neighbors(self):
+        return self._neighbors
 
     def attackables(self):
         attackables = []
