@@ -1,9 +1,11 @@
-from Player import *
-from Territory import *
-from Continent import *
 from GameHandler import *
+from View.Game import Game
+
+from Player import *
+from Agents import Agent
 
 
 file_path = "input/specification.txt"
-read_game(file_path)
-print_state()
+handler = GameHandler(file_path)
+g = Game(handler)
+g.run()
