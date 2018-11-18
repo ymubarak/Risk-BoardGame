@@ -16,7 +16,12 @@ class GameOverWindow:
         columns = 3
         width = 600
         height = 800
-        clear_menu = lambda: window.destroy()
+        
+        self.play_again = False
+        quit = lambda: window.destroy()
+        def play_again():
+            self.play_again = True
+            window.destroy()
 
         window = self.top = tk.Frame(master, width=width, height=height,
          background=COLORS['BACKGROUND'], padx=20, pady=20)
@@ -38,13 +43,25 @@ class GameOverWindow:
         label.grid(row=3, columnspan=columns, sticky='we')
         
         window.grid_rowconfigure(4, minsize=10)
-        play_btn = Button(window, text="Play Again", style="play_btn.TButton", command=clear_menu)
-        play_btn.grid(row=5, columnspan=columns)
+        
+        place_btn = Button(window, text="Play Again", style="custom.TButton", command=play_again)
+        place_btn.grid(row=5, column=2)
+        
+        cancel_btn = Button(window, text="Exit", style="custom2.TButton", command=quit)
+        cancel_btn.grid(row=5, column=1)
 
         s = Style()
         s.configure(
-            'play_btn.TButton',
+            'custom.TButton',
             background='green',
             foreground='green',
             font=("Cambria", 18),
+
+        )
+        s.configure(
+            'custom2.TButton',
+            background='red',
+            foreground='red',
+            font=("Cambria", 18),
+
         )

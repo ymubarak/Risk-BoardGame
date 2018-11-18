@@ -1,4 +1,6 @@
 import os
+import time
+import threading
 import pygame
 import tkinter as tk
 from tkinter import Label, Canvas, PhotoImage
@@ -38,6 +40,8 @@ FPS = 14
 # paths
 STANDING_SOLJ = "media/images/standing{}.png"
 FIGHTING_SOLJ = "media/images/fighting{}.png"
+
+lock = threading.Lock()
 
 class Game(Frame):
     def __init__(self, controller):
@@ -116,22 +120,6 @@ class Game(Frame):
         self.skip_button_rect = self.canvas.create_rectangle(x1, y1, x2, y2, fill=COLORS['REDY'])
         self.skip_button_txt = self.canvas.create_text(x1+left_padding, y1+top_padding,
          text="Skip", fill="white", font=(None, 14))
-        WAIT_TIME = 5
-        def sign(n):
-            if n > 0: return 1
-            elif n < 0: return -1
-            return 0
-        
-        def _moveloop(object_id, tomovex, tomovey):
-            if not tomovex and not tomovey:
-                return  # Break the loop
-            
-            self.canvas.move(object_id, sign(tomovex), sign(tomovey))
-            newx = (abs(tomovex) - 1) * sign(tomovex)
-            newy = (abs(tomovey) - 1) * sign(tomovey)
-
-            self.master.after(WAIT_TIME, lambda: _moveloop(object_id, newx, newy))
-        self.canvas.animate = _moveloop
         # self.skip_button_txt = Utility.draw_text(self.screen, "Skip", WIDTH/2+width/2 ,top_padding, 18)
 
     def _show_skip_button(self):
@@ -166,6 +154,30 @@ class Game(Frame):
         self.side_menu.expanding_perc_1.update()
         self.side_menu.expanding_perc_2['value'] = 100*len(pls[1]._territories)/self.graph_size
         self.side_menu.expanding_perc_2.update()
+    
+    
+    def _phase_popup(self, phase_name):
+        # print("innn")
+        # lock.acquire() # will block if lock is already held
+
+        # font_size = 40
+        # left_padding = font_size/2
+        # x = WIDTH/2
+        # y = 0.05*HEIGHT
+        # top_padding = 20
+        # print(phase_name)
+        # txt = self.canvas.create_text(x, y,
+        #  text=phase_name, fill="white", font=(None, font_size))
+
+        # wait_time = 0.5 # in seconds
+        # def remove_pop_up():
+        #     time.sleep(wait_time)
+        #     self.canvas.delete(txt)
+        #     print("done")
+        
+        # self.master.after(1, lambda: remove_pop_up())
+        # lock.release()
+        pass
     
     
     def _build_graph(self):
@@ -274,6 +286,105 @@ class Game(Frame):
                 self.canvas.itemconfigure(self.canvas.last_object,
                     outline="black", width=2)
     
+
+    def handle_placement(self, players, turn, territory):
+        other_player = 0 if turn==1 else 1
+        if players[other_player].has_territory(territory):
+            return
+        
+        placed_armies = self._army_placement_window(players[turn].armies)
+        if placed_armies is None:
+            return
+        territory.n_armies+= placed_armies
+        players[turn].armies -= placed_armies
+        if not players[turn].has_territory(territory):
+            players[turn].add_territory(territory)
+        
+        img_file = Image.open(STANDING_SOLJ.format(turn+1))
+        img = ImageTk.PhotoImage(img_file.resize((28,72)))
+        pos = self.circles_positions[self.from_ter_to_objID(territory)]
+        markerID = self.canvas.create_image(pos[0], pos[1], image=img)
+        marker = markerID, img, pos
+        self.land_markers.append(marker)
+
+        phn = self.controller.change_phase()
+        self._phase_popup(phn)
+        self.check_attackability(players[turn])
+        
+    
+    def handle_attack(self, players, turn, territory):
+        if self.attacker_choosed == None:
+            if not territory.attackables():
+                return
+            self.attacker_choosed = territory
+            c_id = self.circles[territory.id()-1]
+            pos = self.circles_positions[c_id]
+            self.choice_arc = self.canvas.create_circle(pos[0], pos[1], NODE_SIZE+3,
+                width=4, outline=COLORS['REDY'])
+            self._highlight_attackables(self.attacker_choosed)
+
+        else:
+            if territory not in self.attacker_choosed.attackables():
+                return
+
+            diff = self.attacker_choosed.n_armies - territory.n_armies - 1
+            placed_armies = self._army_placement_window(diff)
+            if placed_armies is None:
+                return
+            players[turn].conquer(self.attacker_choosed, territory, placed_armies)
+            c_id = self.circles[territory.id()-1]
+            pos = self.circles_positions[c_id]
+            for m in self.land_markers:
+                if m[-1][0] ==pos[0] and m[-1][1] ==pos[1]:
+                    self.canvas.delete(m[0])
+                    del m
+                    break
+            img_file = Image.open(STANDING_SOLJ.format(turn+1))
+            img = ImageTk.PhotoImage(img_file.resize((28,72)))
+            pos = self.circles_positions[self.from_ter_to_objID(territory)]
+            markerID = self.canvas.create_image(pos[0], pos[1], image=img)
+            marker = markerID, img, pos
+            self.land_markers.append(marker)
+
+            self.attacker_choosed = None
+            self.canvas.delete(self.choice_arc)
+            self._hide_skip_button()
+            phn = self.controller.change_phase()
+            self._phase_popup(phn)
+            self.controller.switch_turn()
+            self.is_new_turn = True
+    
+    def check_attackability(self, player):
+            can_attack = False
+            for t in player._territories:
+                if t.attackables():
+                    can_attack = True
+                    break
+            if can_attack:
+                self._show_skip_button()
+            else:
+                phn = self.controller.change_phase()
+                self._phase_popup(phn)
+                self.controller.switch_turn()
+                self._hide_skip_button()
+                self.is_new_turn = True
+
+    def from_objID_to_ter(self, object_id):
+        index = self.circles.index(object_id)
+        territory = self.controller.graph()[index+1]
+        return territory
+
+    def from_ter_to_objID(self, territory):
+        object_id = None
+        index = -1
+        for i in range(1, self.graph_size+1):
+            if self.controller.graph()[i] == territory:
+                index = i-1
+                break
+
+        object_id = self.circles[index]
+        return object_id
+
     def _user_play(self, pos):
         if self.game_over:
             return
@@ -287,7 +398,8 @@ class Game(Frame):
         # skip button clicked
         if object_ids[0] == self.skip_button_rect:
             self._hide_skip_button()
-            self.controller.change_phase()
+            phn = self.controller.change_phase()
+            self._phase_popup(phn)
             self.controller.switch_turn()
             self.is_new_turn = True
             self.attacker_choosed = None
@@ -295,84 +407,16 @@ class Game(Frame):
         
         if object_ids[0] not in self.circles:
             return
-        index = self.circles.index(object_ids[0])
-        territory = self.controller.graph()[index+1]
-
+        
+        territory = self.from_objID_to_ter(object_ids[0])
         turn, _ = self.controller.get_game_state()
         players = self.controller.players()
         if self.controller.game_phase()[0] == 0: # place armies
-            other_player = 0 if turn==1 else 1
-            if players[other_player].has_territory(territory):
-                return
+            self.handle_placement(players, turn, territory)
             
-            placed_armies = self._army_placement_window(players[turn].armies)
-            if placed_armies is None:
-                return
-            territory.n_armies+= placed_armies
-            players[turn].armies -= placed_armies
-            if not players[turn].has_territory(territory):
-                players[turn].add_territory(territory)
-            
-            img_file = Image.open(STANDING_SOLJ.format(turn+1))
-            img = ImageTk.PhotoImage(img_file.resize((28,72)))
-            pos = self.circles_positions[object_ids[0]]
-            markerID = self.canvas.create_image(pos[0], pos[1], image=img)
-            marker = markerID, img, pos
-            self.land_markers.append(marker)
-
-            self.controller.change_phase()
-            can_attack = False
-            for t in players[turn]._territories:
-                if t.attackables():
-                    can_attack = True
-                    break
-            if can_attack:
-                self._show_skip_button()
-            else:
-                self.controller.change_phase()
-                self.controller.switch_turn()
-                self.is_new_turn = True
         elif self.controller.game_phase()[0] == 1: # attacking phase
-            if self.attacker_choosed == None:
-                if not territory.attackables():
-                    return
-                self.attacker_choosed = territory
-                c_id = self.circles[territory.id()-1]
-                pos = self.circles_positions[c_id]
-                self.choice_arc = self.canvas.create_circle(pos[0], pos[1], NODE_SIZE+3,
-                    width=4, outline=COLORS['REDY'])
-                self._highlight_attackables(self.attacker_choosed)
-                self.attacker_choosed = self.attacker_choosed
-
-            else:
-                if territory not in self.attacker_choosed.attackables():
-                    return
-
-                diff = self.attacker_choosed.n_armies - territory.n_armies - 1
-                placed_armies = self._army_placement_window(diff)
-                if placed_armies is None:
-                    return
-                players[turn].conquer(self.attacker_choosed, territory, placed_armies)
-                c_id = self.circles[territory.id()-1]
-                pos = self.circles_positions[c_id]
-                for m in self.land_markers:
-                    if m[-1][0] ==pos[0] and m[-1][1] ==pos[1]:
-                        self.canvas.delete(m[0])
-                        del m
-                        break
-                img_file = Image.open(STANDING_SOLJ.format(turn+1))
-                img = ImageTk.PhotoImage(img_file.resize((28,72)))
-                pos = self.circles_positions[object_ids[0]]
-                markerID = self.canvas.create_image(pos[0], pos[1], image=img)
-                marker = markerID, img, pos
-                self.land_markers.append(marker)
-
-                self.attacker_choosed = None
-                self.canvas.delete(self.choice_arc)
-                self._hide_skip_button()
-                self.controller.change_phase()
-                self.controller.switch_turn()
-                self.is_new_turn = True
+            print("attacking")
+            self.handle_attack(players, turn, territory)
 
 
 
@@ -389,6 +433,23 @@ class Game(Frame):
             return self.canvas.create_arc(x-r, y-r, x+r, y+r, **kwargs)
         self.canvas.create_circle_arc = _create_circle_arc
         
+        
+        def sign(n):
+            if n > 0: return 1
+            elif n < 0: return -1
+            return 0
+        
+        def _moveloop(object_id, tomovex, tomovey, wait_time=5):
+            if not tomovex and not tomovey:
+                return  # Break the loop
+            
+            self.canvas.move(object_id, sign(tomovex), sign(tomovey))
+            newx = (abs(tomovex) - 1) * sign(tomovex)
+            newy = (abs(tomovey) - 1) * sign(tomovey)
+
+            self.master.after(wait_time, lambda: _moveloop(object_id, newx, newy,wait_time))
+        self.canvas.animate = _moveloop
+
         # add event listeners
         self.canvas.bind('<Motion>', self._motion)
         self.canvas.last_object = None
@@ -411,7 +472,22 @@ class Game(Frame):
         self._build_graph()
         Utility.play_sound(0)
 
+    def handle_game_over(self, turn):
+        winner = 0 if turn==1 else 1
+        header = "Player {} wins".format(winner+1);
+        pls = self.controller.players()
+        summary = "# of Turns: {}\nRemained Bonus: {}".format(5,
+            pls[winner].armies)
+        go = GameOverWindow(self.master, header, summary)
+        self.master.wait_window(go.top)
+        if go.play_again:
+            self._init_game()
+            self.game_over = False
+        else:
+            self.master.destroy()
 
+
+    
     def run(self):
         self._init_game()
         players = self.controller.players()
@@ -423,27 +499,88 @@ class Game(Frame):
             turn, gameover = self.controller.get_game_state()
             if not self.game_over and gameover:
                 self.game_over = True
+                self.handle_game_over(turn)
                 
-                header = "Player {} wins".format(turn+1);
-                pls = self.controller.players()
-                summary = "# of Turns: {}\nRemained Bonus{}".format(5,
-                    pls[turn].armies)
-                GameOverWindow(self.master, header, summary)
+            # if self.game_over:
+            #     self.master.update()
+            #     continue
             
             self._side_menu_labels(turn, players)
             # check user type at each turn
             if self.is_new_turn:
                 turn, _ = self.controller.get_game_state()
                 self.is_new_turn = False
+                wait_time = 1
                 if isinstance(players[turn], Agent): # player is an AI agent
-                    players[turn].play()
                     self.is_agent_player = True
-                    self.controller.switch_turn()
+                    time.sleep(wait_time)
+                    agent_action = players[turn].place_armies()
+                    if agent_action.get('placement', ()):
+                        territory = agent_action['placement'][0]
+                        placed_armies = agent_action['placement'][1]
+                        territory.n_armies+= placed_armies
+                        players[turn].armies -= placed_armies
+                        if not players[turn].has_territory(territory):
+                            players[turn].add_territory(territory)
+                        
+                        img_file = Image.open(STANDING_SOLJ.format(turn+1))
+                        img = ImageTk.PhotoImage(img_file.resize((28,72)))
+                        pos = self.circles_positions[self.from_ter_to_objID(territory)]
+                        markerID = self.canvas.create_image(pos[0], pos[1], image=img)
+                        marker = markerID, img, pos
+                        self.land_markers.append(marker)
+                        self.master.update()
+
+                    
+                    phn = self.controller.change_phase()
+                    self._phase_popup(phn)
+                    time.sleep(wait_time)
+
+                    agent_action = players[turn].attack()
+                    if agent_action.get('attack', ()):
+                        attacker = agent_action['attack'][0]
+                        attacked = agent_action['attack'][1]
+                        placed_armies = agent_action['attack'][2]
+                        self.attacker_choosed = attacker
+                        c_id = self.circles[self.attacker_choosed.id()-1]
+                        pos = self.circles_positions[c_id]
+                        self.choice_arc = self.canvas.create_circle(pos[0], pos[1], NODE_SIZE+3,
+                            width=4, outline=COLORS['REDY'])
+                        self._highlight_attackables(self.attacker_choosed)
+                        
+                        self.master.update()
+                        time.sleep(wait_time)
+
+                        players[turn].conquer(self.attacker_choosed, attacked, placed_armies)
+                        c_id = self.circles[attacked.id()-1]
+                        pos = self.circles_positions[c_id]
+                        for m in self.land_markers:
+                            if m[-1][0] ==pos[0] and m[-1][1] ==pos[1]:
+                                self.canvas.delete(m[0])
+                                del m
+                                break
+                        img_file = Image.open(STANDING_SOLJ.format(turn+1))
+                        img = ImageTk.PhotoImage(img_file.resize((28,72)))
+                        pos = self.circles_positions[self.from_ter_to_objID(attacked)]
+                        markerID = self.canvas.create_image(pos[0], pos[1], image=img)
+                        marker = markerID, img, pos
+                        self.land_markers.append(marker)
+
+                        self.attacker_choosed = None
+                        self.canvas.delete(self.choice_arc)
+                    
+
                     self._hide_skip_button()
+                    phn = self.controller.change_phase()
+                    self._phase_popup(phn)
+                    self.controller.switch_turn()
                     self.is_new_turn = True
+
                 else:
                     self.is_agent_player = False
                     if players[turn].armies == 0:
-                        self.controller.change_phase()
+                        phn = self.controller.change_phase()
+                        self._phase_popup(phn)
                         self._show_skip_button()
+                        self.check_attackability(players[turn])
             self.master.update() 

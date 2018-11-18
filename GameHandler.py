@@ -70,6 +70,7 @@ class GameHandler():
 
     def change_phase(self):
         self._game_phase = 0 if self._game_phase==1 else 1
+        return PHASES[self._game_phase]
 
     def game_phase(self):
         return self._game_phase, PHASES[self._game_phase]
