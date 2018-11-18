@@ -28,6 +28,9 @@ class Continent:
         if owner is not None and not isinstance(owner, Player):
             raise TypeError
         self._owner = owner
+    
+    def has_territory(self, t):
+        return t in self._territories
 
     def reinforce_owner(self):
         if self._owner is not None:

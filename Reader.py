@@ -39,5 +39,10 @@ def read_game(file_path):
 
     except StopIteration:
         pass
+    except FileNotFoundError:
+        print("Error, File not found")
+    except Exception as e:
+        print("Error, incosistent graph specification OR file format is invalid")
+        exit()
     #
     return graph, continents

@@ -33,9 +33,13 @@ TITLE = "Risk"
 WIDTH = 1200
 HEIGHT = 700
 SCREEN_SIZE = (WIDTH, HEIGHT)
+
 EDGE_WIDTH = 2
 NODE_SIZE = 200
+DISTANCE = 120
+
 FPS = 14
+
 
 # paths
 STANDING_SOLJ = "media/images/standing{}.png"
@@ -51,12 +55,14 @@ class Game(Frame):
         
         self.controller = controller
         self.master.title(TITLE)
-        self.master.configure(background = "black", width=WIDTH, height=HEIGHT)
+        self.master.configure(background = "red")
+        self.master["bg"] = "red"
         self.master.minsize(WIDTH, HEIGHT)
+        self.master.attributes("-fullscreen", True) 
 
         # self.master.maxsize(WIDTH+SIDE_MENU_WIDTH, HEIGHT)
 
-        self.embed = tk.Frame(self.master, width=WIDTH, height=HEIGHT) #creates embed frame for pygame window
+        self.embed = tk.Frame(self.master) #creates embed frame for pygame window
         self.embed.grid() # Adds grid
         self.embed.pack(side='left', fill='both', expand=True) # packs window to the left
         os.environ['SDL_WINDOWID'] = str(self.embed.winfo_id())
@@ -64,7 +70,7 @@ class Game(Frame):
         # create pygame
         pygame.init()
         pygame.display.set_caption(TITLE)
-        self.screen = pygame.display.set_mode(SCREEN_SIZE)
+        self.screen = pygame.display.set_mode()
         self.clock = pygame.time.Clock()
         
     
@@ -98,6 +104,7 @@ class Game(Frame):
 
     def _splash_screen(self):
         self.master.update()
+        SCREEN_SIZE = self.master.winfo_width(), self.master.winfo_height()
         sp_screen = SplashScreen(self.screen, SCREEN_SIZE)
 
 
@@ -110,7 +117,7 @@ class Game(Frame):
     def _skip_button(self):
         width = 80
         height = 40
-        x1 = WIDTH/2 - width/2
+        x1 = self.master.winfo_width()/2 - width/2
         y1 = -height
         x2 = x1 + width
         y2 = 0
@@ -181,24 +188,42 @@ class Game(Frame):
     
     
     def _build_graph(self):
-        self.G = nx.Graph()
-        for key in self.controller.graph().keys():
-            self.G.add_node(key)
-        # color nodes
-        colors = []
-        for c in self.controller.continents():
-            colors += [Colors.to_hex(c.color())] * len(c._territories)
-        colors = iter(colors)
- 
-        positions = nx.circular_layout(self.G)
+        # variables
         self.graph_size = len(self.controller.graph())
-        scale_factor = 440/self.graph_size
+        global NODE_SIZE
+        NODE_SIZE = NODE_SIZE/ (self.graph_size)**0.5
+        scale_factor = 2.25*DISTANCE + DISTANCE/(self.graph_size)**0.5
+
+        G = nx.Graph()
+        for key in self.controller.graph().keys():
+            G.add_node(key)
+
+        for node in self.controller.graph().values():
+            for nb in node.neighbors():
+                G.add_edge(node.id(), nb.id())
+        
+        
+        # organize nodes in layout
+        positions = None
+        if self.graph_size < 5:
+            positions = nx.circular_layout(G)
+            scale_factor *= 0.75
+            NODE_SIZE *= 1.25
+        else:
+            positions = nx.fruchterman_reingold_layout(G, k=10*NODE_SIZE)
+        
         pos = [(p*scale_factor).astype("int") for p in positions.values()]
         min_x = min([p[0] for p in pos])
+        max_x = max([p[0] for p in pos])
+        mid_x = (max_x+min_x)/2
+        x_displacement = self.master.winfo_width()/2 - mid_x
+
         min_y = min([p[1] for p in pos])
-        x_margin = abs(min_x) + int(0.3*WIDTH)
-        y_margin = abs(min_y) + int(0.3*HEIGHT)
-        pos = [(p[0]+x_margin,p[1]+y_margin) for p in pos]
+        max_y = max([p[1] for p in pos])
+        mid_y = (max_x+min_y)/2
+        y_displacement = self.master.winfo_height()/2 - mid_y
+
+        pos = [(p[0]+x_displacement,p[1]+y_displacement) for p in pos]
 
         # draw edges
         explored = set()
@@ -217,14 +242,25 @@ class Game(Frame):
         # draw nodes
         self.circles = []
         self.circles_positions = {}
-        global NODE_SIZE
-        NODE_SIZE = NODE_SIZE//self.graph_size
         for i, p in enumerate(pos, start=1):
-            object_id = self.canvas.create_circle(p[0], p[1], NODE_SIZE, fill=next(colors), width=2)
+            # node color
+            color = None
+            for c in self.controller.continents():
+                t = self.controller.graph()[i]
+                if c.has_territory(t):
+                    color = Colors.to_hex(c.color())
+                    break
+            object_id = self.canvas.create_circle(p[0], p[1], NODE_SIZE, fill=color, width=2)
             self.circles.append(object_id)
             self.circles_positions[object_id] = (p[0], p[1])
             # Utility.draw_text(self.screen, str(i), p[0], p[1],size=NODE_SIZE+1, center=True)
         
+        scale = 720/ (2*NODE_SIZE)
+        scale_y = int(720/scale)
+        scale_x = int(280/scale)
+
+        self.icons = [Image.open(STANDING_SOLJ.format(1)).resize((scale_x, scale_y)),
+                        Image.open(STANDING_SOLJ.format(2)).resize((scale_x, scale_y))]
     
     def _highlight_attackables(self, territory):
         turn, _ = self.controller.get_game_state()
@@ -300,8 +336,7 @@ class Game(Frame):
         if not players[turn].has_territory(territory):
             players[turn].add_territory(territory)
         
-        img_file = Image.open(STANDING_SOLJ.format(turn+1))
-        img = ImageTk.PhotoImage(img_file.resize((28,72)))
+        img = ImageTk.PhotoImage(self.icons[turn])
         pos = self.circles_positions[self.from_ter_to_objID(territory)]
         markerID = self.canvas.create_image(pos[0], pos[1], image=img)
         marker = markerID, img, pos
@@ -339,8 +374,8 @@ class Game(Frame):
                     self.canvas.delete(m[0])
                     del m
                     break
-            img_file = Image.open(STANDING_SOLJ.format(turn+1))
-            img = ImageTk.PhotoImage(img_file.resize((28,72)))
+            
+            img = ImageTk.PhotoImage(self.icons[turn])
             pos = self.circles_positions[self.from_ter_to_objID(territory)]
             markerID = self.canvas.create_image(pos[0], pos[1], image=img)
             marker = markerID, img, pos
@@ -473,11 +508,20 @@ class Game(Frame):
         Utility.play_sound(0)
 
     def handle_game_over(self, turn):
-        winner = 0 if turn==1 else 1
-        header = "Player {} wins".format(winner+1);
+        header = None
+        summary = None
         pls = self.controller.players()
-        summary = "# of Turns: {}\nRemained Bonus: {}".format(5,
-            pls[winner].armies)
+        if self.controller.is_draw:
+            header = "Draw !"
+            summary = "Player1 Turns: {}\t|\tPlayer2 Turns: {}\n"\
+            "Player1 Bonus: {}\t|\tPlayer2 Bonus: {}\n".format(5, 5,
+                        pls[0].armies, pls[1].armies)
+        else:
+            winner = 0 if turn==1 else 1
+            header = "Player {} wins".format(winner+1);
+            summary = "# of Turns: {}\nRemained Bonus: {}".format(5,
+                        pls[winner].armies)
+        
         go = GameOverWindow(self.master, header, summary)
         self.master.wait_window(go.top)
         if go.play_again:
@@ -501,11 +545,13 @@ class Game(Frame):
                 self.game_over = True
                 self.handle_game_over(turn)
                 
-            # if self.game_over:
-            #     self.master.update()
-            #     continue
+            if self.game_over:
+                self.master.update()
+                continue
             
             self._side_menu_labels(turn, players)
+            self.master.update() 
+
             # check user type at each turn
             if self.is_new_turn:
                 turn, _ = self.controller.get_game_state()
@@ -523,8 +569,7 @@ class Game(Frame):
                         if not players[turn].has_territory(territory):
                             players[turn].add_territory(territory)
                         
-                        img_file = Image.open(STANDING_SOLJ.format(turn+1))
-                        img = ImageTk.PhotoImage(img_file.resize((28,72)))
+                        img = ImageTk.PhotoImage(self.icons[turn])
                         pos = self.circles_positions[self.from_ter_to_objID(territory)]
                         markerID = self.canvas.create_image(pos[0], pos[1], image=img)
                         marker = markerID, img, pos
@@ -559,8 +604,7 @@ class Game(Frame):
                                 self.canvas.delete(m[0])
                                 del m
                                 break
-                        img_file = Image.open(STANDING_SOLJ.format(turn+1))
-                        img = ImageTk.PhotoImage(img_file.resize((28,72)))
+                        img = ImageTk.PhotoImage(self.icons[turn])
                         pos = self.circles_positions[self.from_ter_to_objID(attacked)]
                         markerID = self.canvas.create_image(pos[0], pos[1], image=img)
                         marker = markerID, img, pos
@@ -568,7 +612,7 @@ class Game(Frame):
 
                         self.attacker_choosed = None
                         self.canvas.delete(self.choice_arc)
-                    
+                        self.master.update()                     
 
                     self._hide_skip_button()
                     phn = self.controller.change_phase()

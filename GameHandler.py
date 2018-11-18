@@ -17,6 +17,7 @@ class GameHandler():
         self._player_types = ('Human', 'Passive Agent', 'Agressive Agent', 'Pacifist Agent',
             'Greedy Agent', 'A-Star Agent', 'A-Star-real-time Agent')
         self._game_phase = 0
+        self.is_draw = False
 
     def create_players(self, type_1, type_2):
         p1 = None
@@ -67,6 +68,28 @@ class GameHandler():
             if self._players[self._turn] == c.owner:
                 c.reinforce_owner()
 
+        no_owner = True
+        for c in self._continents:
+            if c.owner != None:
+                no_owner = False
+                break
+
+        if (no_owner and
+            self._players[0].armies == 0 and
+            self._players[1].armies == 0 and
+            not self.can_attack(self._players[0]) and 
+            not self.can_attack(self._players[1])):
+            self._game_ended = True
+            self.is_draw = True
+
+    def can_attack(self, player):
+        can_attack = False
+        for t in player._territories:
+            if t.attackables():
+                can_attack = True
+                break
+        return can_attack
+    
 
     def change_phase(self):
         self._game_phase = 0 if self._game_phase==1 else 1

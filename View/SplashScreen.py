@@ -19,9 +19,9 @@ class SplashScreen:
         splash.blit(logo, logo_rect)
         # adding text
         txt = "AI ? Here it comes"
-        fomt_size = 36
-        Utility.draw_text(splash, txt, screen_size[0]/2, logo_rect.center[0]-fomt_size,
-         fomt_size, font_name="Wide Latin")
+        font_size = 36
+        Utility.draw_text(splash, txt, screen_size[0]/2, screen_size[0]/2-font_size,
+         font_size, font_name="Wide Latin")
         
         # fade in
         master.blit(splash, (0, 0))
@@ -32,5 +32,5 @@ class SplashScreen:
             splash.set_alpha(alpha)
             master.fill(Colors.black)
             master.blit(splash, (0, 0))
-            pygame.time.delay(5)
+            pygame.time.delay(2)
             pygame.display.update()
