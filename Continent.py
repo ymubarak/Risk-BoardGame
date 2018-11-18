@@ -14,17 +14,21 @@ class Continent:
 
     def bonus(self):
         return self._bonus
-        
+
+    def territories(self):
+        return self._territories
+
+
     @property
     def owner(self):
         return self._owner
     
     @owner.setter
     def owner(self, owner):
-        if not isinstance(owner, Player):
+        if owner is not None and not isinstance(owner, Player):
             raise TypeError
         self._owner = owner
 
-    def reinforce_owner():
+    def reinforce_owner(self):
         if self._owner is not None:
-            self._owner.armies += self.bonus 
+            self._owner.armies += self._bonus 

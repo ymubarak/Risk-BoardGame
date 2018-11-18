@@ -4,6 +4,8 @@ from Continent import *
 import Reader
 from Agents import PassiveAgent, PacifistAgent
 
+PHASES = ["Place Armies", "Attack!"]
+
 class GameHandler():
     
     def __init__(self, file_path):
@@ -14,12 +16,50 @@ class GameHandler():
         # players options
         self._player_types = ('Human', 'Passive Agent', 'Agressive Agent', 'Pacifist Agent',
             'Greedy Agent', 'A-Star Agent', 'A-Star-real-time Agent')
-        self._players = [Player(),PassiveAgent.PassiveAgent()]
+        self._game_phase = 0
+
+    def create_players(self, type_1, type_2):
+        p1 = None
+        p2 = None
+        # set player 1
+        if type_1 == self._player_types[0]:
+            p1 = Player()
+        elif type_1 == self._player_types[1]:
+            p1 = PassiveAgent.PassiveAgent(self)
+        elif type_1 == self._player_types[2]:
+            p1 = AgressiveAgent.AgressiveAgent(self)
+        elif type_1 == self._player_types[3]:
+            p1 = PacifistAgent.PacifistAgent(self)
+
+        # set player 2
+        if type_2 == self._player_types[0]:
+            p2 = Player()
+        elif type_2 == self._player_types[1]:
+            p2 = PassiveAgent.PassiveAgent(self)
+        elif type_2 == self._player_types[2]:
+            p2 = AgressiveAgent.AgressiveAgent(self)
+        elif type_2 == self._player_types[3]:
+            p2 = PacifistAgent.PacifistAgent(self)
+        
+        self._players = [p1, p2]
         self._players[0].armies = 3
         self._players[1].armies = 3
 
-    
     def switch_turn(self):
+        if self._game_ended:
+            return
+        player_lands = len(set(self._players[self._turn]._territories))
+        if player_lands == self._graph_size:
+            self._game_ended = True
+        
+        for c in self._continents:
+            if not (set(c.territories()) - set(self._players[0]._territories)):
+                c.owner = self._players[0]
+            elif not (set(c.territories()) - set(self._players[1]._territories)):
+                c.owner = self._players[1]
+            else:
+                 c.owner = None
+        
         self._turn = 1 if self._turn==0 else 0
         # phase 1
         self._players[self._turn].reinforce()
@@ -27,19 +67,13 @@ class GameHandler():
             if self._players[self._turn] == c.owner:
                 c.reinforce_owner()
 
-        # phase 2
-        # if turn == 0 (human turn)
-            # wait for gui interaction/decission
-            # - place armies
-            # - attack ==> choose new placement
-        # else:
-            # TODO: choose an agent to play 
 
-        player_lands = len(set(self._players[self._turn]._territories))
-        if player_lands == self._graph_size:
-            self._game_ended = True
+    def change_phase(self):
+        self._game_phase = 0 if self._game_phase==1 else 1
 
-    
+    def game_phase(self):
+        return self._game_phase, PHASES[self._game_phase]
+
     def get_game_state(self):
         return self._turn, self._game_ended
 

@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import Label, StringVar, PanedWindow
 
 SIDE_MENU_WIDTH = 180
-PHASES = ["Place Armies", "Attack!"]
+
 COLORS = {
     'BACKGROUND': "#151315",
     'CORRECT': "#0ca972",
@@ -11,10 +11,9 @@ COLORS = {
 }
 
 class SideMenu:
-    def __init__(self, WIDTH, HEIGHT):
+    def __init__(self, WIDTH, HEIGHT, init_phase):
         background = "black"
         columns = 4
-        # self.embed.config(width=WIDTH-SIDE_MENU_WIDTH)
         side_menu = PanedWindow(orient="vertical", bg=COLORS['DARK'])
         side_menu.pack(fill="both", expand=1)
         side_menu.config(borderwidth=2, width=SIDE_MENU_WIDTH, height=HEIGHT, sashwidth=10)
@@ -25,9 +24,9 @@ class SideMenu:
         state_box.pack(side="left", fill='both')
         
         # creating state box labels
-        self.turn_phase = StringVar()
-        self.turn_phase.set(PHASES[0])
-        Label(state_box, bg=background, fg="green", textvariable=self.turn_phase,
+        self.phase_name = StringVar()
+        self.phase_name.set(init_phase)
+        Label(state_box, bg=background, fg="green", textvariable=self.phase_name,
          font=("Cambria",18)).grid(row=0, columnspan=columns, sticky="ew")
 
         self.player1_label = Label(state_box, bg=background, fg="white", text="Player1", font=("Cambria",20))
@@ -36,21 +35,35 @@ class SideMenu:
         Label(state_box, bg=background, fg="white",
          textvariable=self.player1_army_label, font=("Cambria",16)).grid(row=2, columnspan=columns, sticky="nw")
         
-        state_box.grid_rowconfigure(3, minsize=120)
+        label = Label(state_box, bg=background, fg="white", text="Lands Acquistion", font=("Cambria",14))
+        label.grid(row=3, columnspan=columns, sticky="nw")
+
+        self.expanding_perc_1 = tk.ttk.Progressbar(state_box, orient="horizontal", length=100)
+        self.expanding_perc_1.grid(row=4, columnspan=columns, sticky="nw")
+
+        state_box.grid_rowconfigure(5, minsize=120)
 
         self.player2_label = Label(state_box, bg=background, fg="white", text="Player2", font=("Cambria",20))
-        self.player2_label.grid(row=4, columnspan=columns, sticky="nw")
+        self.player2_label.grid(row=6, columnspan=columns, sticky="nw")
         self.player2_army_label = StringVar()
         self.player2_army_label.set("Armies")
         Label(state_box, bg=background, fg="white",
-         textvariable=self.player2_army_label, font=("Cambria",16)).grid(row=5, columnspan=columns, sticky="w")
+         textvariable=self.player2_army_label, font=("Cambria",16)).grid(row=7, columnspan=columns, sticky="w")
+        
+        label = Label(state_box, bg=background, fg="white", text="Lands Acquistion", font=("Cambria",14))
+        label.grid(row=8, columnspan=columns, sticky="nw")
+
+        self.expanding_perc_2 = tk.ttk.Progressbar(state_box, orient="horizontal", length=100)
+        self.expanding_perc_2.grid(row=9, columnspan=columns, sticky="nw")
 
         # create info box
-        self.side_menu_info = StringVar()
-        info_box = Label(side_menu, bg=background, fg="white",textvariable=self.side_menu_info,
+        self.info = StringVar()
+        info_box = Label(side_menu, bg=background, fg="white",textvariable=self.info,
          font=("Times New Roman",14))
-        info_box.configure(anchor="center")
+        info_box.configure(anchor="center", justify="left")
 
+        self.expanding_perc_1['maximum'] = 100
+        self.expanding_perc_2['maximum'] = 100
         # add to side menu
         side_menu.add(state_box)
         side_menu.add(info_box)

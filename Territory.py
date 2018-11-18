@@ -1,4 +1,3 @@
-from Player import *
 
 class Territory:
     def __init__(self, t_id):
@@ -20,8 +19,7 @@ class Territory:
     def n_armies(self, n_armies):
         if not isinstance(n_armies, int):
             raise TypeError
-        new_val = self._armies+n_armies
-        self._armies = 0 if new_val<0 else new_val
+        self._armies = 0 if n_armies<0 else n_armies
 
     @property
     def owner(self):
@@ -29,8 +27,9 @@ class Territory:
     
     @owner.setter
     def owner(self, owner):
-        if not isinstance(owner, Player):
-            raise TypeError
+        from Player import Player
+        if owner is not None and not isinstance(owner, Player):
+            raise TypeError("Territory Owner must be a Player object or None")
         self._owner = owner
 
     def add_neighbor(self, neighbor):
@@ -45,7 +44,8 @@ class Territory:
     def attackables(self):
         attackables = []
         for nb in self._neighbors:
-            if self._armies - nb.n_armies > 1:
+            if (nb.n_armies >0 and
+             nb.owner is not self._owner and self._armies - nb.n_armies > 1):
                 attackables.append(nb)
 
         return attackables
