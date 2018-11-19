@@ -14,6 +14,10 @@ class Player:
         self._territories.append(territory)
 
     @property
+    def territories():
+        return self._territories
+
+    @property
     def armies(self):
         return self._armies
     
