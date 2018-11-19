@@ -21,11 +21,14 @@ class GameHandler():
     
     def switch_turn(self):
         self._turn = 1 if self._turn==0 else 0
+
         # phase 1
         self._players[self._turn].reinforce()
         for c in self._continents:
             if self._players[self._turn] == c.owner:
                 c.reinforce_owner()
+        
+
 
         # phase 2
         # if turn == 0 (human turn)
@@ -38,6 +41,11 @@ class GameHandler():
         player_lands = len(set(self._players[self._turn]._territories))
         if player_lands == self._graph_size:
             self._game_ended = True
+
+        # update the continent ownership at the end of each turn 
+        # (it should be updated only after at least one conquer in it)
+        for c in self._continents:
+                c.update_owner()
 
     
     def get_game_state(self):

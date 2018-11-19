@@ -30,11 +30,11 @@ def read_game(file_path):
         for i in range(p):
             arr = next(file).strip().split(" ")
             bonus = int(arr[0])
-            territories = []
+            content_territories = []
             for t_id in arr[1:]:
-                territories.append(graph[int(t_id)])
+                content_territories.append(graph[int(t_id)])
             
-            c = Continent(bonus, territories)
+            c = Continent(bonus, content_territories)
             continents.append(c)
 
     except StopIteration:
