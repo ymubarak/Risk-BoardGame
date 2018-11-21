@@ -29,10 +29,10 @@ class PassiveAgent(Player, Agent):
 					break
 		else:
 			min_armies = sorted(self._territories, key=lambda x: x.n_armies)
-			min_loss = min_armies[0].n_armies
+			min_army = min_armies[0].n_armies
 			stop_point = 1
 			for i in range(1, len(min_armies)):
-				if min_armies[i].n_armies > min_loss:
+				if min_armies[i].n_armies > min_army:
 					stop_point = i
 					break
 			min_armies = min_armies[:stop_point]

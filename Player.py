@@ -1,11 +1,11 @@
 
 
-class Player:
+CONQUER_BONUS = 2
 
+class Player:
     def __init__(self):
         self._territories = []
         self._armies = 0
-        self._conquer_bonus = 0
 
 
     def add_territory(self, territory):
@@ -42,12 +42,6 @@ class Player:
         
         attacker.n_armies -= attacked.n_armies + placement
         attacked.n_armies = placement
-        self._conquer_bonus += 2
+        self._armies += CONQUER_BONUS
         attacked.owner.remove_territory(attacked)
         self.add_territory(attacked)
-
-
-    def reinforce(self):
-        if self._conquer_bonus > 0:
-            self._armies += self._conquer_bonus
-            self._conquer_bonus = 0

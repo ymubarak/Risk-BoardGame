@@ -2,7 +2,7 @@ from Player import *
 from Territory import *
 from Continent import *
 import Reader
-from Agents import PassiveAgent, PacifistAgent
+from Agents import PassiveAgent, PacifistAgent, AgressiveAgent, GreedyAgent
 
 PHASES = ["Place Armies", "Attack!"]
 
@@ -11,13 +11,14 @@ class GameHandler():
     def __init__(self, file_path):
         self._turn = 0
         self._game_ended = False
-        self._graph, self._continents = Reader.read_game(file_path)
+        self._graph, self._continents, self.t1, self.t2 = Reader.read_game(file_path)
         self._graph_size = len(self.graph())
         # players options
         self._player_types = ('Human', 'Passive Agent', 'Agressive Agent', 'Pacifist Agent',
             'Greedy Agent', 'A-Star Agent', 'A-Star-real-time Agent')
         self._game_phase = 0
         self.is_draw = False
+        self.num_of_turns = 0
 
     def create_players(self, type_1, type_2):
         p1 = None
@@ -31,6 +32,12 @@ class GameHandler():
             p1 = AgressiveAgent.AgressiveAgent(self)
         elif type_1 == self._player_types[3]:
             p1 = PacifistAgent.PacifistAgent(self)
+        elif type_1 == self._player_types[4]:
+            p1 = GreedyAgent.GreedyAgent(self)
+        elif type_1 == self._player_types[5]:
+            p1 = AStar.AStar(self)
+        elif type_1 == self._player_types[6]:
+            p1 = AStarRealTime.AStarRealTime(self)
 
         # set player 2
         if type_2 == self._player_types[0]:
@@ -41,7 +48,18 @@ class GameHandler():
             p2 = AgressiveAgent.AgressiveAgent(self)
         elif type_2 == self._player_types[3]:
             p2 = PacifistAgent.PacifistAgent(self)
+        elif type_2 == self._player_types[4]:
+            p2 = GreedyAgent.GreedyAgent(self)
+        elif type_2 == self._player_types[5]:
+            p2 = AStar.AStar(self)
+        elif type_2 == self._player_types[6]:
+            p2 = AStarRealTime.AStarRealTime(self)
         
+        for t in self.t1:
+            p1.add_territory(t)
+        for t in self.t2:
+            p2.add_territory(t)
+
         self._players = [p1, p2]
         self._players[0].armies = 3
         self._players[1].armies = 3
@@ -49,6 +67,8 @@ class GameHandler():
     def switch_turn(self):
         if self._game_ended:
             return
+        
+        self.num_of_turns += 1
         player_lands = len(set(self._players[self._turn]._territories))
         if player_lands == self._graph_size:
             self._game_ended = True
@@ -63,7 +83,6 @@ class GameHandler():
         
         self._turn = 1 if self._turn==0 else 0
         # phase 1
-        self._players[self._turn].reinforce()
         for c in self._continents:
             if self._players[self._turn] == c.owner:
                 c.reinforce_owner()
@@ -73,6 +92,7 @@ class GameHandler():
             if c.owner != None:
                 no_owner = False
                 break
+
 
         if (no_owner and
             self._players[0].armies == 0 and

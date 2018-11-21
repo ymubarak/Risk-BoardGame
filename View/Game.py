@@ -44,6 +44,7 @@ FPS = 14
 # paths
 STANDING_SOLJ = "media/images/standing{}.png"
 FIGHTING_SOLJ = "media/images/fighting{}.png"
+AX = "media/images/ax.png"
 
 lock = threading.Lock()
 
@@ -164,23 +165,28 @@ class Game(Frame):
     
     
     def _phase_popup(self, phase_name):
-        # print("innn")
         # lock.acquire() # will block if lock is already held
 
-        # font_size = 40
-        # left_padding = font_size/2
-        # x = WIDTH/2
-        # y = 0.05*HEIGHT
-        # top_padding = 20
-        # print(phase_name)
-        # txt = self.canvas.create_text(x, y,
-        #  text=phase_name, fill="white", font=(None, font_size))
+        font_size = 40
+        left_padding = font_size/2
+        x = self.master.winfo_width()/2
+        y = 0.05*self.master.winfo_height()
+        top_padding = 20
 
-        # wait_time = 0.5 # in seconds
+        turn, _ = self.controller.get_game_state()
+        popup_text = "Player{} : {}".format(turn+1, phase_name)
+        txt = self.canvas.create_text(x, y,
+         text=popup_text, fill="white", font=(None, font_size))
+
+        self.master.update()
+        wait_time = 0.5 # in seconds
+        time.sleep(wait_time)
+        self.canvas.delete(txt)
+        time.sleep(wait_time)
+        
         # def remove_pop_up():
         #     time.sleep(wait_time)
         #     self.canvas.delete(txt)
-        #     print("done")
         
         # self.master.after(1, lambda: remove_pop_up())
         # lock.release()
@@ -258,9 +264,19 @@ class Game(Frame):
         scale = 720/ (2*NODE_SIZE)
         scale_y = int(720/scale)
         scale_x = int(280/scale)
+        ax_scale = int(NODE_SIZE)
 
         self.icons = [Image.open(STANDING_SOLJ.format(1)).resize((scale_x, scale_y)),
-                        Image.open(STANDING_SOLJ.format(2)).resize((scale_x, scale_y))]
+                        Image.open(STANDING_SOLJ.format(2)).resize((scale_x, scale_y)),
+                        Image.open(AX).resize((ax_scale, ax_scale))]
+
+        for i, p in enumerate(self.controller.players()):
+            for t in p._territories:
+                img = ImageTk.PhotoImage(self.icons[i])
+                pos = self.circles_positions[self.from_ter_to_objID(t)]
+                markerID = self.canvas.create_image(pos[0], pos[1], image=img)
+                marker = markerID, img, pos
+                self.land_markers.append(marker)
     
     def _highlight_attackables(self, territory):
         turn, _ = self.controller.get_game_state()
@@ -328,11 +344,11 @@ class Game(Frame):
         if players[other_player].has_territory(territory):
             return
         
-        placed_armies = self._army_placement_window(players[turn].armies)
-        if placed_armies is None:
-            return
-        territory.n_armies+= placed_armies
-        players[turn].armies -= placed_armies
+        #placed_armies = self._army_placement_window(players[turn].armies)
+        #if placed_armies is None:
+        #    return
+        territory.n_armies+= players[turn].armies
+        players[turn].armies = 0
         if not players[turn].has_territory(territory):
             players[turn].add_territory(territory)
         
@@ -384,23 +400,42 @@ class Game(Frame):
             self.attacker_choosed = None
             self.canvas.delete(self.choice_arc)
             self._hide_skip_button()
-            phn = self.controller.change_phase()
-            self._phase_popup(phn)
             self.controller.switch_turn()
+            _, gameover = self.controller.get_game_state()
+            if not gameover:
+                phn = self.controller.change_phase()
+                self._phase_popup(phn)
             self.is_new_turn = True
+            self.ax_markers = []
     
+    
+    def _show_attack_ticks(self, player):
+        for t in player._territories:
+            if t.attackables():
+                img = ImageTk.PhotoImage(self.icons[2])
+                objID = self.from_ter_to_objID(t)
+                coords = self.canvas.coords(objID)
+                x = coords[2] - (coords[2]-coords[0])*0.2
+                y = coords[1] + (coords[3]-coords[1])*0.1
+
+                markerID = self.canvas.create_image(x, y, image=img)
+                marker = markerID, img
+                self.ax_markers.append(marker)
+
     def check_attackability(self, player):
             can_attack = False
             for t in player._territories:
                 if t.attackables():
                     can_attack = True
+                    self._show_attack_ticks(player)
                     break
             if can_attack:
                 self._show_skip_button()
             else:
+                self.ax_markers = []
+                self.controller.switch_turn()
                 phn = self.controller.change_phase()
                 self._phase_popup(phn)
-                self.controller.switch_turn()
                 self._hide_skip_button()
                 self.is_new_turn = True
 
@@ -433,11 +468,12 @@ class Game(Frame):
         # skip button clicked
         if object_ids[0] == self.skip_button_rect:
             self._hide_skip_button()
+            self.controller.switch_turn()
             phn = self.controller.change_phase()
             self._phase_popup(phn)
-            self.controller.switch_turn()
             self.is_new_turn = True
             self.attacker_choosed = None
+            self.ax_markers = []
             return
         
         if object_ids[0] not in self.circles:
@@ -450,7 +486,6 @@ class Game(Frame):
             self.handle_placement(players, turn, territory)
             
         elif self.controller.game_phase()[0] == 1: # attacking phase
-            print("attacking")
             self.handle_attack(players, turn, territory)
 
 
@@ -491,11 +526,12 @@ class Game(Frame):
         
         self.canvas.bind("<Button-1>", self._user_play)
         self.land_markers = []
+        self.ax_markers = []
 
 
 
     def _init_game(self):
-        # self._splash_screen()
+        #self._splash_screen()
         Utility.play_sound(1)
         self._options_menu()
         self._create_canvas()
@@ -514,12 +550,13 @@ class Game(Frame):
         if self.controller.is_draw:
             header = "Draw !"
             summary = "Player1 Turns: {}\t|\tPlayer2 Turns: {}\n"\
-            "Player1 Bonus: {}\t|\tPlayer2 Bonus: {}\n".format(5, 5,
+            "Player1 Bonus: {}\t|\tPlayer2 Bonus: {}\n".format(self.controller.num_of_turns, self.controller.num_of_turns,
                         pls[0].armies, pls[1].armies)
         else:
             winner = 0 if turn==1 else 1
+            num_of_turns = self.controller.num_of_turns # (self.controller.num_of_turns+1)//2
             header = "Player {} wins".format(winner+1);
-            summary = "# of Turns: {}\nRemained Bonus: {}".format(5,
+            summary = "# of Turns: {}\nRemained Bonus: {}".format(num_of_turns,
                         pls[winner].armies)
         
         go = GameOverWindow(self.master, header, summary)
@@ -554,7 +591,7 @@ class Game(Frame):
 
             # check user type at each turn
             if self.is_new_turn:
-                turn, _ = self.controller.get_game_state()
+                turn, game_over = self.controller.get_game_state()
                 self.is_new_turn = False
                 wait_time = 1
                 if isinstance(players[turn], Agent): # player is an AI agent
@@ -583,6 +620,7 @@ class Game(Frame):
 
                     agent_action = players[turn].attack()
                     if agent_action.get('attack', ()):
+                        self._show_attack_ticks(players[turn])
                         attacker = agent_action['attack'][0]
                         attacked = agent_action['attack'][1]
                         placed_armies = agent_action['attack'][2]
@@ -615,12 +653,17 @@ class Game(Frame):
                         self.master.update()                     
 
                     self._hide_skip_button()
+                    self.controller.switch_turn()
+                    _ , gameover = self.controller.get_game_state()
+                    if not gameover:
+                        phn = self.controller.change_phase()
+                        self._phase_popup(phn)
                     phn = self.controller.change_phase()
                     self._phase_popup(phn)
-                    self.controller.switch_turn()
                     self.is_new_turn = True
+                    self.ax_markers = []
 
-                else:
+                elif not game_over:
                     self.is_agent_player = False
                     if players[turn].armies == 0:
                         phn = self.controller.change_phase()

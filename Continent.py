@@ -6,7 +6,7 @@ class Continent:
         self._bonus = bonus
         self._territories = territories
         self._owner = None
-        self._color = color if color!=None else colors.random_color() # for gui purpose
+        self._color = color if color!=None else colors.pick_pallette_color() # for gui purpose
     
 
     def color(self):
