@@ -76,7 +76,8 @@ class Game(Frame):
         
     
     def _side_menu(self):
-        self.side_menu = SideMenu(WIDTH, HEIGHT, self.controller.game_phase()[1])
+        self.side_menu = SideMenu(WIDTH, HEIGHT, self.controller.game_phase()[1],
+            self.player1_type, self.player2_type)
 
     
     def _legend(self):
@@ -99,8 +100,10 @@ class Game(Frame):
     def _options_menu(self):
         op_menu = CustomOptionsMenu(self.master, self.controller.player_types())
         self.master.wait_window(op_menu.top)
-        self.controller.create_players(op_menu.player1_type.get(),
-         op_menu.player2_type.get())
+        self.player1_type = op_menu.player1_type.get()
+        self.player2_type = op_menu.player2_type.get()
+        self.controller.create_players(self.player1_type,
+         self.player2_type)
 
 
     def _splash_screen(self):
@@ -163,7 +166,31 @@ class Game(Frame):
         self.side_menu.expanding_perc_2['value'] = 100*len(pls[1]._territories)/self.graph_size
         self.side_menu.expanding_perc_2.update()
     
-    
+    def _armies_labels(self):
+        circle_radius = 0.25*NODE_SIZE
+        font_size = int(0.7*(2*circle_radius))
+        for c in self.controller.continents():
+            for t in c._territories:
+                objID = self.from_ter_to_objID(t)
+                coords = self.canvas.coords(objID)
+                x = coords[0] + (coords[2]-coords[0])*0.2
+                y = coords[1] + (coords[3]-coords[1])*0.1
+                self.canvas.create_circle(x, y, circle_radius, fill="red")
+                label = self.canvas.create_text(x, y, text=str(t.n_armies),
+                     fill="white", font=(None, font_size))
+                
+                army_label = label, t
+                self.armies_markers.append(army_label)
+                self.master.update()
+
+    def _update_armies_labels(self):
+        for c in self.controller.continents():
+            for t in c._territories:
+                for tpl in self.armies_markers:
+                    if t == tpl[1]:
+                        self.canvas.itemconfigure(tpl[0], text=str(t.n_armies))
+                        
+
     def _phase_popup(self, phase_name):
         # lock.acquire() # will block if lock is already held
 
@@ -211,7 +238,7 @@ class Game(Frame):
         
         # organize nodes in layout
         positions = None
-        if self.graph_size < 5:
+        if self.graph_size <= 5:
             positions = nx.circular_layout(G)
             scale_factor *= 0.75
             NODE_SIZE *= 1.25
@@ -349,6 +376,7 @@ class Game(Frame):
         #    return
         territory.n_armies+= players[turn].armies
         players[turn].armies = 0
+        self._update_armies_labels()
         if not players[turn].has_territory(territory):
             players[turn].add_territory(territory)
         
@@ -360,6 +388,7 @@ class Game(Frame):
 
         phn = self.controller.change_phase()
         self._phase_popup(phn)
+        print("Player turn", turn ,"change phase due to placement end")
         self.check_attackability(players[turn])
         
     
@@ -383,6 +412,7 @@ class Game(Frame):
             if placed_armies is None:
                 return
             players[turn].conquer(self.attacker_choosed, territory, placed_armies)
+            self._update_armies_labels()
             c_id = self.circles[territory.id()-1]
             pos = self.circles_positions[c_id]
             for m in self.land_markers:
@@ -407,6 +437,9 @@ class Game(Frame):
                 self._phase_popup(phn)
             self.is_new_turn = True
             self.ax_markers = []
+            if not self.attacker_choosed:
+                for tpl in self.edges:
+                    self.canvas.itemconfigure(tpl[-1], fill="white", width=EDGE_WIDTH)
     
     
     def _show_attack_ticks(self, player):
@@ -435,6 +468,7 @@ class Game(Frame):
                 self.ax_markers = []
                 self.controller.switch_turn()
                 phn = self.controller.change_phase()
+                print("Player turn change phase due to non ability to attack")
                 self._phase_popup(phn)
                 self._hide_skip_button()
                 self.is_new_turn = True
@@ -470,6 +504,7 @@ class Game(Frame):
             self._hide_skip_button()
             self.controller.switch_turn()
             phn = self.controller.change_phase()
+            print("Player turn change phase due to skip end")
             self._phase_popup(phn)
             self.is_new_turn = True
             self.attacker_choosed = None
@@ -526,12 +561,14 @@ class Game(Frame):
         
         self.canvas.bind("<Button-1>", self._user_play)
         self.land_markers = []
+        self.armies_markers = []
         self.ax_markers = []
 
 
 
+
     def _init_game(self):
-        #self._splash_screen()
+        # self._splash_screen()
         Utility.play_sound(1)
         self._options_menu()
         self._create_canvas()
@@ -541,7 +578,8 @@ class Game(Frame):
         self._side_menu()
         # build graph
         self._build_graph()
-        Utility.play_sound(0)
+        self._armies_labels()
+        # Utility.play_sound(0)
 
     def handle_game_over(self, turn):
         header = None
@@ -562,7 +600,7 @@ class Game(Frame):
         go = GameOverWindow(self.master, header, summary)
         self.master.wait_window(go.top)
         if go.play_again:
-            self._init_game()
+            self.run()
             self.game_over = False
         else:
             self.master.destroy()
@@ -611,10 +649,12 @@ class Game(Frame):
                         markerID = self.canvas.create_image(pos[0], pos[1], image=img)
                         marker = markerID, img, pos
                         self.land_markers.append(marker)
+                        self._update_armies_labels()
                         self.master.update()
 
                     
                     phn = self.controller.change_phase()
+                    print("Player turn  agent, change phase due to placement end")
                     self._phase_popup(phn)
                     time.sleep(wait_time)
 
@@ -650,6 +690,10 @@ class Game(Frame):
 
                         self.attacker_choosed = None
                         self.canvas.delete(self.choice_arc)
+                        self._update_armies_labels()
+                        if not self.attacker_choosed:
+                            for tpl in self.edges:
+                                self.canvas.itemconfigure(tpl[-1], fill="white", width=EDGE_WIDTH)
                         self.master.update()                     
 
                     self._hide_skip_button()
@@ -658,8 +702,6 @@ class Game(Frame):
                     if not gameover:
                         phn = self.controller.change_phase()
                         self._phase_popup(phn)
-                    phn = self.controller.change_phase()
-                    self._phase_popup(phn)
                     self.is_new_turn = True
                     self.ax_markers = []
 
@@ -667,6 +709,7 @@ class Game(Frame):
                     self.is_agent_player = False
                     if players[turn].armies == 0:
                         phn = self.controller.change_phase()
+                        print("Player turn", turn ,"change phase due to no placement possible")
                         self._phase_popup(phn)
                         self._show_skip_button()
                         self.check_attackability(players[turn])

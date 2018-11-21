@@ -68,11 +68,13 @@ class GreedyAgent(Player, Agent):
     def place_armies(self):
         self.discover()
         agent_action = {}
-        agent_action['placement'] = (self.attacker, self._armies)
+        if (self.attacker != None):
+            agent_action['placement'] = (self.attacker, self._armies)
         return agent_action
 
     def attack(self):
         agent_action = {}
-        placement = self.attacker.n_armies - self.attacked.n_armies
-        agent_action['attack'] = (self.attacker, self.attacked, placement - 1)
+        if (self.attacker != None and self.attacked != None and (self.attacked in self.attacker.attackables())):
+            placement = self.attacker.n_armies - self.attacked.n_armies
+            agent_action['attack'] = (self.attacker, self.attacked, placement - 1)
         return agent_action
