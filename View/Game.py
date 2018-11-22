@@ -73,6 +73,7 @@ class Game(Frame):
         pygame.display.set_caption(TITLE)
         self.screen = pygame.display.set_mode()
         self.clock = pygame.time.Clock()
+        self.history = ""
         
     
     def _side_menu(self):
@@ -355,7 +356,7 @@ class Game(Frame):
             entered = True
           
         if not entered:
-            self.side_menu.info.set("")
+            self.side_menu.info.set(self.history)
             self.canvas.itemconfigure(self.skip_button_rect, 
                     fill=COLORS['REDY'])
             if not self.attacker_choosed:
@@ -374,7 +375,8 @@ class Game(Frame):
         #placed_armies = self._army_placement_window(players[turn].armies)
         #if placed_armies is None:
         #    return
-        territory.n_armies+= players[turn].armies
+        placed_armies = players[turn].armies
+        territory.n_armies += placed_armies
         players[turn].armies = 0
         self._update_armies_labels()
         if not players[turn].has_territory(territory):
@@ -388,7 +390,9 @@ class Game(Frame):
 
         phn = self.controller.change_phase()
         self._phase_popup(phn)
-        print("Player turn", turn ,"change phase due to placement end")
+        action = "Player{}: {} armies in t{}\n".format(turn+1, placed_armies, territory.id())
+        self.history += action
+        self.side_menu.info.set(self.history)
         self.check_attackability(players[turn])
         
     
@@ -411,7 +415,14 @@ class Game(Frame):
             placed_armies = self._army_placement_window(diff)
             if placed_armies is None:
                 return
+            
+            action = "Player{}: t{}:{} attacked t{}:{}\n".format(turn+1,
+                        self.attacker_choosed.id(),self.attacker_choosed.n_armies,
+                         territory.id(), territory.n_armies)
+            self.history += action
+            self.side_menu.info.set(self.history)
             players[turn].conquer(self.attacker_choosed, territory, placed_armies)
+
             self._update_armies_labels()
             c_id = self.circles[territory.id()-1]
             pos = self.circles_positions[c_id]
@@ -581,6 +592,8 @@ class Game(Frame):
         self._armies_labels()
         # Utility.play_sound(0)
 
+    
+
     def handle_game_over(self, turn):
         header = None
         summary = None
@@ -649,6 +662,9 @@ class Game(Frame):
                         markerID = self.canvas.create_image(pos[0], pos[1], image=img)
                         marker = markerID, img, pos
                         self.land_markers.append(marker)
+                        action = "Player{}: {} armies in t{}\n".format(turn+1, placed_armies, territory.id())
+                        self.history += action
+                        self.side_menu.info.set(self.history)
                         self._update_armies_labels()
                         self.master.update()
 
@@ -674,6 +690,11 @@ class Game(Frame):
                         self.master.update()
                         time.sleep(wait_time)
 
+                        action = "Player{}: t{}:{} attacked t{}:{}\n".format(turn+1,
+                        self.attacker_choosed.id(),self.attacker_choosed.n_armies,
+                            attacked.id(), attacked.n_armies)
+                        self.history += action
+                        self.side_menu.info.set(self.history)
                         players[turn].conquer(self.attacker_choosed, attacked, placed_armies)
                         c_id = self.circles[attacked.id()-1]
                         pos = self.circles_positions[c_id]

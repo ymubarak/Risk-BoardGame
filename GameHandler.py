@@ -2,7 +2,7 @@ from Player import *
 from Territory import *
 from Continent import *
 import Reader
-from Agents import PassiveAgent, PacifistAgent, AgressiveAgent, GreedyAgent
+from Agents import PassiveAgent, PacifistAgent, AgressiveAgent, GreedyAgent, AStar
 
 PHASES = ["Place Armies", "Attack!"]
 
