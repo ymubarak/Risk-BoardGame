@@ -8,36 +8,30 @@ class Continent:
         self._owner = None
         self._color = color if color!=None else colors.random_color() # for gui purpose
     
-    @property
+
     def color(self):
         return self._color
 
-    @property
     def bonus(self):
         return self._bonus
-        
+
+    def territories(self):
+        return self._territories
+
+
     @property
     def owner(self):
         return self._owner
     
     @owner.setter
     def owner(self, owner):
-        if not isinstance(owner, Player):
+        if owner is not None and not isinstance(owner, Player):
             raise TypeError
         self._owner = owner
+    
+    def has_territory(self, t):
+        return t in self._territories
 
-    def reinforce_owner():
+    def reinforce_owner(self):
         if self._owner is not None:
-            self._owner.armies += self.bonus 
-
-    # update the ownership of this continent
-    def update_owner():
-        continent_owners = set()
-        
-        for t in self._territories:
-            continent_owners.add(t.owner)
-
-        if(len(continent_owners) == 1):
-            self._owner = continent_owners[0]
-        elif (len(continent_owners) > 1):
-            self._owner = None
+            self._owner.armies += self._bonus 
