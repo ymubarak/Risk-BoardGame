@@ -31,7 +31,6 @@ class TreeNode:
     def parent(self):
         return self._parent
     
-
     def total_value(self):
         return self._g_value + self._h_value
         

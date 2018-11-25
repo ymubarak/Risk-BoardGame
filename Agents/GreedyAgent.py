@@ -3,8 +3,10 @@ from Territory import *
 from Continent import *
 from GameHandler import *
 from Agents.Agent import Agent
+from Agents.InformedSearch import InformedSearch
 from TreeNode import *
-
+from GameState import *
+import copy
 
 
 
@@ -16,111 +18,67 @@ class GreedyAgent(Player, Agent):
     to achieve that we have two lists: t_mine and t_oppo as my territoris and 
     opponent's territories respectivly.
     """
-    def __init__(self, controller):
-        Player.__init__(self)
+    def __init__(self, controller, pid):
+        Player.__init__(self, pid)
         Agent.__init__(self, "GreedyAgent")
         self.controller = controller
-        self.attacked = None
         self.attacker = None
+        self.placement = None
+        self.attacked = None
 
-    # calculate h for the Territory
-    def h_function(self, attackers, target):
-        cnt = 0
-        for nbr in target.neighbors():
-            if nbr in attackers:
-                cnt += 1
-        return (1.0 - cnt/len(target.neighbors()))
+    
+    def heuristic(self, state):
+        territories_ratio = state.territories_ration_per_continent()
+        armies_ratio = 1- state.armies / (state.armies + state.opponent_armies)
+        h = armies_ratio * territories_ratio
+        return h 
 
-    def find_targets(self, attackers):
-        targets = []
-        for t in self.controller.graph().values():
-            if t not in attackers:
-                targets.append(t)
-        return targets
+    def get_territory_by_id(self, tid):
+        for t in self._territories:
+            if t.id() == tid:
+                return t
 
-    def build_tree_node(self, attackers, targets_temp, parent=None):
-        targets = []
-        if not targets_temp:
-            return targets
-        for t in targets_temp:
-            # put 0 for g function and None for parent node
-            node = TreeNode(t, 0, self.h_function(attackers, t), parent)
-            targets.apped(node)
+    def place_armies(self):
+        agent_action = {}
 
-    def find_attacked(self, TreeNode):
-        p = TreeNode
-        while p.parent != None:
-            p = TreeNode.parent
-        return p
+        player_copy = copy.deepcopy(self)
+        cont_copy = copy.deepcopy(self.controller.continents())
+        init_state = GameState(player_copy, cont_copy)
+        self.informed_search = InformedSearch(init_state, self.controller)
 
-    def check_attackability(self, targets):
-        new_targets = []
-        if not targets:
-            return new_targets
-        for t in targets:
-            for nbr in t.neighbors():
-                if t in nbr.attackables():
-                    new_targets.append(t)
-                    break
-
-    def attacked_search(self):
-        attackers = self._territories
-
-        targets_temp1 = self.find_targets(attackers)
-        targets_temp2 = self.check_attackability(targets_temp1)
-        if not targets_temp2:
-            max_armies = sorted(targets_temp1, key=lambda x: x.n_armies, reverse=False)
+        
+        self.informed_search.set_heuristic(self.heuristic)
+        next_state = self.informed_search.get_search_result()
+        if next_state != None:
+            attacker_id, attacked_id, placement = next_state
+            self.attacker = self.get_territory_by_id(attacker_id)
+            self.attacked = self.get_territory_by_id(attacked_id)
+            self.placement = placement
+            if self.armies != 0:
+                agent_action['placement'] = (self.attacker, self._armies)
+        elif self.armies != 0:
+            self.attacker = None
+            self.placement = None
+            self.attacked = None
+            max_armies = sorted(self._territories, key=lambda x: x.n_armies, reverse=True)
             for t in max_armies:
                 for nbr in t.neighbors():
                     if nbr.owner != t.owner:
-                        self.attacked = t
-                        self.attacker = nbr
-                        return self.attacked
-
-        # else, build your tree search
-        targets = self.build_tree_node(attackers, targets_temp)
-        targets = sort(targets)
-        min_node = None
-
-        # if targets is empty, then we reach our goal
-        while targets:
-            min_node = targets[0]
-            attackers.append(min_node.t)
-            targets_temp.remove(min_node.t)
-
-            targets = self.build_tree_node(attackers, targets_temp, min_node)
-            targets = sort(targets)
-
-        attacked = self.find_attacked(min_node)
-
-        return attacked
-
-    def determine_attacker(self, attacked):
-        if not attacked:
-            return None
-        for attacker in attacked.neighbors():
-            if attacked in attacker.attackables():
-                return attacker
-        return None
-
-    def place_armies(self):
-        self.attacked = self.attacked_search()
-        self.attacker = self.determine_attacker(self.attacked)
-        agent_action = {}
-        if self.attacker != None:
+                        self.attacker = t
             agent_action['placement'] = (self.attacker, self._armies)
-        else:
-            max_armies = sorted(self._territories, key=lambda x: x.n_armies, reverse=True)
-            t = max_armies[0]
-            agent_action['placement'] = (t, self._armies)
+            
+
         return agent_action
 
     def attack(self):
-        self.attacked = self.attacked_search()
-        self.attacker = self.determine_attacker(self.attacked)
-
         agent_action = {}
-        if (self.attacker != None and self.attacked != None and (self.attacked in self.attacker.attackables())):
-            placement = self.attacker.n_armies - self.attacked.n_armies
-            agent_action['attack'] = (self.attacker, self.attacked, placement - 1)
+        if self.attacked == None and self.attacker != None:
+                if self.attacker.attackables():
+                    self.attacked = self.attacker.attackables()[0]
+                    self.placement = (self.attacker.n_armies - self.attacked.n_armies)//2
+                else:
+                    self.attacker = None
+
+        if self.attacker != None:
+            agent_action['attack'] = (self.attacker, self.attacked, self.placement)    
         return agent_action

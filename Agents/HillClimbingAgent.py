@@ -4,18 +4,17 @@ from Continent import *
 from GameHandler import *
 from Agents.Agent import Agent
 
-
-
 class HillClimbing(Player, Agent):
-    def __init__(self, controller):
-        Player.__init__(self)
-        Agent.__init__(self, "GreedyAgent")
-        # opponents nearest territories
+    def __init__(self, controller, pid):
+        Player.__init__(self, pid)
+        Agent.__init__(self, "HillClimbing")
         self.controller = controller
+        # opponents nearest territories
         self._targets = {}
         self.attacker = None
         self.attacked = None
 
+    # the more an opponent territory has attackers, the more weight it gains
     def increase_key(self, k):
         if k in self._targets:
             self._targets[k] += 1
@@ -41,12 +40,13 @@ class HillClimbing(Player, Agent):
         # we assumed it's the one has the max number of armies
         max_armies = sorted(self._territories, key=lambda x: x.n_armies, reverse=True)
 
-        for (attacked, weight) in self._targets:
-
+        # Among possible candidate opponent territories [targets], choose the territory with 
+        # the maximum possible armies to attack it
+        for (candidate, weight) in self._targets:
             for attacker in max_armies:
-                if attacked in attacker.attackables():
+                if candidate in attacker.attackables():
                     self.attacker = attacker
-                    self.attacked = attacked
+                    self.attacked = candidate
                     break
             else:
                 continue
@@ -54,14 +54,23 @@ class HillClimbing(Player, Agent):
 
 
     def place_armies(self):
-        self.discover()
         agent_action = {}
-        if (self.attacker != None):
-            agent_action['placement'] = (self.attacker, self._armies)
+        if self._armies == 0:
+            return agent_action
+        
+        territory = None
+        if not self._territories:
+            continents = self.controller.continents()
+            territory = self._init_placement(continents)
         else:
-            max_armies = sorted(self._territories, key=lambda x: x.n_armies, reverse=True)
-            t = max_armies[0]
-            agent_action['placement'] = (t, self._armies)
+            self.discover()
+            if (self.attacker != None):
+                territory = self.attacker
+            else: # can not attack
+                max_armies = sorted(self._territories, key=lambda x: x.n_armies, reverse=True)
+                territory = max_armies[0]
+        
+        agent_action['placement'] = (territory, self._armies)
         return agent_action
 
     def attack(self):

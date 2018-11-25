@@ -3,11 +3,11 @@ from Agents.Agent import Agent
 
 
 class PassiveAgent(Player, Agent):
-	def __init__(self, controller):
+	def __init__(self, controller, pid):
 		Agent.__init__(self, "PassiveAgent")
-		Player.__init__(self)
+		Player.__init__(self, pid)
 		self.controller = controller
-		
+	
 	def place_armies(self):
 		agent_action = {}
 		if self._armies == 0:
@@ -15,18 +15,8 @@ class PassiveAgent(Player, Agent):
 			return agent_action
 		territory = None
 		if not self._territories:
-			max_bonus = -1
-			max_cont = None
-			for cont in self.controller.continents():
-				if cont.owner != None:
-					continue
-				if max_bonus < cont.bonus():
-					max_bonus = cont.bonus()
-					max_cont = cont
-			for t in max_cont.territories():
-				if t.owner is None:
-					territory = t
-					break
+			continents = self.controller.continents()
+			territory = self._init_placement(continents)
 		else:
 			min_armies = sorted(self._territories, key=lambda x: x.n_armies)
 			min_army = min_armies[0].n_armies

@@ -3,7 +3,7 @@ import time
 import threading
 import pygame
 import tkinter as tk
-from tkinter import Label, Canvas, PhotoImage
+from tkinter import Label, Canvas, PhotoImage, Button
 from tkinter.ttk import Frame
 import networkx as nx
 from PIL import ImageTk, Image
@@ -17,6 +17,7 @@ from View.SplashScreen import SplashScreen
 from View.SideMenu import SideMenu
 from View.ArmyPlacementWindow import ArmyPlacementWindow
 from View import Utility
+import copy
 
 #colors
 BACKGROUND = (21, 19, 21) #Colors.bluey
@@ -73,9 +74,59 @@ class Game(Frame):
         pygame.display.set_caption(TITLE)
         self.screen = pygame.display.set_mode()
         self.clock = pygame.time.Clock()
-        self.history = ""
+        # store game states in a list
+        self.history = []
+        # String that holds the logs of players actions
+        self.logs = ""
+        self.current_state = 0;
         
+    def save_state(self):
+        p1 = self.controller.players()[0]
+        p2 = self.controller.players()[1]
+        conts = self.controller.continents()
+        game_state = (copy.deepcopy(p1),
+        copy.deepcopy(p2),
+        copy.deepcopy(conts) )
+        # add state to history
+        self.history.append(game_state)
+        self.current_state = len(self.history)-1
+
+   # define prev and next functions
+    def go_to_state(self, s):
+        self.controller.set_state(self.history[s])
+        self.set_nodes_icons()
+        self.master.update()
+        self._update_armies_labels()
+        self.master.update()
     
+    def previous_state(self):
+        self.current_state = 0 if self.current_state==0 else self.current_state-1
+        self.go_to_state(self.current_state)
+        self.master.update()
+    
+    def next_state(self):
+        last_state = len(self.history)-1
+        self.current_state = last_state if self.current_state==last_state else self.current_state+1
+        self.go_to_state(self.current_state)
+        self.master.update()
+
+    def enable_prev_next(self):
+        width = 800
+        height = 400
+        background = COLORS['BACKGROUND']
+        button_color = "#140a4c"
+        window = tk.Frame(self.embed, width=width, height=height,
+         background = background)
+        window.place(anchor="nw", relx=0, rely=0)
+        
+        prev_btn = Button(window, text="Previous", fg="white", bg=button_color, command=self.previous_state)
+        prev_btn.grid(row=0, column=1)
+        
+        next_btn = Button(window, text="Next", fg="white", bg=button_color, command=self.next_state)
+        next_btn.grid(row=0, column=2)
+        self.master.update()
+
+
     def _side_menu(self):
         self.side_menu = SideMenu(WIDTH, HEIGHT, self.controller.game_phase()[1],
             self.player1_type, self.player2_type)
@@ -167,6 +218,25 @@ class Game(Frame):
         self.side_menu.expanding_perc_2['value'] = 100*len(pls[1]._territories)/self.graph_size
         self.side_menu.expanding_perc_2.update()
     
+    def create_id_labels(self):
+        self._id_labels = []
+        circle_radius = 0.25*NODE_SIZE
+        font_size = int(0.7*(2*circle_radius))
+        for c in self.controller.continents():
+            for t in c._territories:
+                objID = self.from_ter_to_objID(t)
+                coords = self.canvas.coords(objID)
+                x = coords[2] - (coords[2]-coords[0])*0.2
+                y = coords[1] + NODE_SIZE
+                self.canvas.create_rect(x, y, circle_radius, fill="grey")
+                label = self.canvas.create_text(x, y, text=str(t.id()),
+                     fill="white", width=0, font=(None, font_size))
+                
+                army_label = label, t
+                self._id_labels.append(army_label)
+                self.master.update()
+
+
     def _armies_labels(self):
         circle_radius = 0.25*NODE_SIZE
         font_size = int(0.7*(2*circle_radius))
@@ -185,10 +255,10 @@ class Game(Frame):
                 self.master.update()
 
     def _update_armies_labels(self):
-        for c in self.controller.continents():
-            for t in c._territories:
+        for p in self.controller.players():
+            for t in p._territories:
                 for tpl in self.armies_markers:
-                    if t == tpl[1]:
+                    if t.id() == tpl[1].id():
                         self.canvas.itemconfigure(tpl[0], text=str(t.n_armies))
                         
 
@@ -221,6 +291,19 @@ class Game(Frame):
         pass
     
     
+    def set_nodes_icons(self):
+        self.land_markers = []
+        for i, p in enumerate(self.controller.players()):
+            for t in p._territories:
+                # print(i, ":", t.id())
+                img = ImageTk.PhotoImage(self.icons[i])
+                pos = self.circles_positions[self.from_ter_to_objID(t)]
+                markerID = self.canvas.create_image(pos[0], pos[1], image=img)
+                marker = markerID, img, pos
+                self.land_markers.append(marker)
+                self.master.update()
+
+    
     def _build_graph(self):
         # variables
         self.graph_size = len(self.controller.graph())
@@ -239,7 +322,7 @@ class Game(Frame):
         
         # organize nodes in layout
         positions = None
-        if self.graph_size <= 5:
+        if self.graph_size <= 8:
             positions = nx.circular_layout(G)
             scale_factor *= 0.75
             NODE_SIZE *= 1.25
@@ -298,13 +381,8 @@ class Game(Frame):
                         Image.open(STANDING_SOLJ.format(2)).resize((scale_x, scale_y)),
                         Image.open(AX).resize((ax_scale, ax_scale))]
 
-        for i, p in enumerate(self.controller.players()):
-            for t in p._territories:
-                img = ImageTk.PhotoImage(self.icons[i])
-                pos = self.circles_positions[self.from_ter_to_objID(t)]
-                markerID = self.canvas.create_image(pos[0], pos[1], image=img)
-                marker = markerID, img, pos
-                self.land_markers.append(marker)
+        self.set_nodes_icons();
+        
     
     def _highlight_attackables(self, territory):
         turn, _ = self.controller.get_game_state()
@@ -356,7 +434,7 @@ class Game(Frame):
             entered = True
           
         if not entered:
-            self.side_menu.info.set(self.history)
+            self.side_menu.info.set(self.logs)
             self.canvas.itemconfigure(self.skip_button_rect, 
                     fill=COLORS['REDY'])
             if not self.attacker_choosed:
@@ -390,9 +468,10 @@ class Game(Frame):
 
         phn = self.controller.change_phase()
         self._phase_popup(phn)
+        self.save_state()
         action = "Player{}: {} armies in t{}\n".format(turn+1, placed_armies, territory.id())
-        self.history += action
-        self.side_menu.info.set(self.history)
+        self.logs += action
+        self.side_menu.info.set(self.logs)
         self.check_attackability(players[turn])
         
     
@@ -419,10 +498,11 @@ class Game(Frame):
             action = "Player{}: t{}:{} attacked t{}:{}\n".format(turn+1,
                         self.attacker_choosed.id(),self.attacker_choosed.n_armies,
                          territory.id(), territory.n_armies)
-            self.history += action
-            self.side_menu.info.set(self.history)
+            self.logs += action
+            self.side_menu.info.set(self.logs)
             players[turn].conquer(self.attacker_choosed, territory, placed_armies)
 
+            self.save_state()
             self._update_armies_labels()
             c_id = self.circles[territory.id()-1]
             pos = self.circles_positions[c_id]
@@ -479,7 +559,7 @@ class Game(Frame):
                 self.ax_markers = []
                 self.controller.switch_turn()
                 phn = self.controller.change_phase()
-                print("Player turn change phase due to non ability to attack")
+                # print("Player turn change phase due to non ability to attack")
                 self._phase_popup(phn)
                 self._hide_skip_button()
                 self.is_new_turn = True
@@ -493,7 +573,7 @@ class Game(Frame):
         object_id = None
         index = -1
         for i in range(1, self.graph_size+1):
-            if self.controller.graph()[i] == territory:
+            if self.controller.graph()[i].id() == territory.id():
                 index = i-1
                 break
 
@@ -515,7 +595,7 @@ class Game(Frame):
             self._hide_skip_button()
             self.controller.switch_turn()
             phn = self.controller.change_phase()
-            print("Player turn change phase due to skip end")
+            # print("Player turn change phase due to skip end")
             self._phase_popup(phn)
             self.is_new_turn = True
             self.attacker_choosed = None
@@ -548,7 +628,10 @@ class Game(Frame):
         def _create_circle_arc(x, y, r, **kwargs):
             return self.canvas.create_arc(x-r, y-r, x+r, y+r, **kwargs)
         self.canvas.create_circle_arc = _create_circle_arc
-        
+
+        def _create_rect(x, y, r, **kwargs):
+            return self.canvas.create_rectangle(x-r, y-r, x+r, y+r, **kwargs)
+        self.canvas.create_rect = _create_rect
         
         def sign(n):
             if n > 0: return 1
@@ -589,8 +672,10 @@ class Game(Frame):
         self._side_menu()
         # build graph
         self._build_graph()
+        self.create_id_labels()
         self._armies_labels()
         # Utility.play_sound(0)
+        self.save_state()
 
     
 
@@ -600,21 +685,20 @@ class Game(Frame):
         pls = self.controller.players()
         if self.controller.is_draw:
             header = "Draw !"
-            summary = "Player1 Turns: {}\t|\tPlayer2 Turns: {}\n"\
-            "Player1 Bonus: {}\t|\tPlayer2 Bonus: {}\n".format(self.controller.num_of_turns, self.controller.num_of_turns,
-                        pls[0].armies, pls[1].armies)
+            summary = "Player1 Turns: {}\t|\tPlayer2 Turns: {}\n".format(self.controller.num_of_turns,
+             self.controller.num_of_turns)
         else:
             winner = 0 if turn==1 else 1
             num_of_turns = self.controller.num_of_turns # (self.controller.num_of_turns+1)//2
             header = "Player {} wins".format(winner+1);
-            summary = "# of Turns: {}\nRemained Bonus: {}".format(num_of_turns,
-                        pls[winner].armies)
+            summary = "# of Turns: {}\n".format(num_of_turns)
         
         go = GameOverWindow(self.master, header, summary)
         self.master.wait_window(go.top)
+        self.master.update()
         if go.play_again:
-            self.run()
-            self.game_over = False
+            self.enable_prev_next()
+            # self.game_over = False
         else:
             self.master.destroy()
 
@@ -631,6 +715,8 @@ class Game(Frame):
             turn, gameover = self.controller.get_game_state()
             if not self.game_over and gameover:
                 self.game_over = True
+                self._side_menu_labels(turn, players)
+                self.master.update()
                 self.handle_game_over(turn)
                 
             if self.game_over:
@@ -662,15 +748,16 @@ class Game(Frame):
                         markerID = self.canvas.create_image(pos[0], pos[1], image=img)
                         marker = markerID, img, pos
                         self.land_markers.append(marker)
+                        self.save_state()
                         action = "Player{}: {} armies in t{}\n".format(turn+1, placed_armies, territory.id())
-                        self.history += action
-                        self.side_menu.info.set(self.history)
+                        self.logs += action
+                        self.side_menu.info.set(self.logs)
                         self._update_armies_labels()
                         self.master.update()
 
                     
                     phn = self.controller.change_phase()
-                    print("Player turn  agent, change phase due to placement end")
+                    # print("Player turn  agent, change phase due to placement end")
                     self._phase_popup(phn)
                     time.sleep(wait_time)
 
@@ -693,9 +780,10 @@ class Game(Frame):
                         action = "Player{}: t{}:{} attacked t{}:{}\n".format(turn+1,
                         self.attacker_choosed.id(),self.attacker_choosed.n_armies,
                             attacked.id(), attacked.n_armies)
-                        self.history += action
-                        self.side_menu.info.set(self.history)
+                        self.logs += action
+                        self.side_menu.info.set(self.logs)
                         players[turn].conquer(self.attacker_choosed, attacked, placed_armies)
+                        self.save_state()
                         c_id = self.circles[attacked.id()-1]
                         pos = self.circles_positions[c_id]
                         for m in self.land_markers:
@@ -730,7 +818,7 @@ class Game(Frame):
                     self.is_agent_player = False
                     if players[turn].armies == 0:
                         phn = self.controller.change_phase()
-                        print("Player turn", turn ,"change phase due to no placement possible")
+                        # print("Player turn", turn ,"change phase due to no placement possible")
                         self._phase_popup(phn)
                         self._show_skip_button()
                         self.check_attackability(players[turn])

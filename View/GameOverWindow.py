@@ -12,7 +12,7 @@ COLORS = {
 
 class GameOverWindow:
     def __init__(self, master, header, summary):
-        Utility.play_sound(2)
+        # Utility.play_sound(2)
         columns = 3
         width = 600
         height = 800
@@ -21,7 +21,8 @@ class GameOverWindow:
         quit = lambda: window.destroy()
         def play_again():
             self.play_again = True
-            window.destroy()
+            quit()
+            print('destroied')
 
         window = self.top = tk.Frame(master, width=width, height=height,
          background=COLORS['BACKGROUND'], padx=20, pady=20)
@@ -44,7 +45,7 @@ class GameOverWindow:
         
         window.grid_rowconfigure(4, minsize=10)
         
-        place_btn = Button(window, text="Play Again", style="custom.TButton", command=play_again)
+        place_btn = Button(window, text="View History", style="custom.TButton", command=play_again)
         place_btn.grid(row=5, column=2)
         
         cancel_btn = Button(window, text="Exit", style="custom2.TButton", command=quit)

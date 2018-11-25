@@ -2,7 +2,7 @@ from Player import *
 from Territory import *
 from Continent import *
 import Reader
-from Agents import PassiveAgent, PacifistAgent, AgressiveAgent, GreedyAgent, AStar
+from Agents import PassiveAgent, PacifistAgent, AgressiveAgent, GreedyAgent, AStar, AStarRealTime
 
 PHASES = ["Place Armies", "Attack!"]
 
@@ -25,35 +25,35 @@ class GameHandler():
         p2 = None
         # set player 1
         if type_1 == self._player_types[0]:
-            p1 = Player()
+            p1 = Player(1)
         elif type_1 == self._player_types[1]:
-            p1 = PassiveAgent.PassiveAgent(self)
+            p1 = PassiveAgent.PassiveAgent(self, 1)
         elif type_1 == self._player_types[2]:
-            p1 = AgressiveAgent.AgressiveAgent(self)
+            p1 = AgressiveAgent.AgressiveAgent(self, 1)
         elif type_1 == self._player_types[3]:
-            p1 = PacifistAgent.PacifistAgent(self)
+            p1 = PacifistAgent.PacifistAgent(self, 1)
         elif type_1 == self._player_types[4]:
-            p1 = GreedyAgent.GreedyAgent(self)
+            p1 = GreedyAgent.GreedyAgent(self, 1)
         elif type_1 == self._player_types[5]:
-            p1 = AStar.AStar(self)
+            p1 = AStar.AStar(self, 1)
         elif type_1 == self._player_types[6]:
-            p1 = AStarRealTime.AStarRealTime(self)
+            p1 = AStarRealTime.AStarRealTime(self, 1)
 
         # set player 2
         if type_2 == self._player_types[0]:
-            p2 = Player()
+            p2 = Player(2)
         elif type_2 == self._player_types[1]:
-            p2 = PassiveAgent.PassiveAgent(self)
+            p2 = PassiveAgent.PassiveAgent(self, 2)
         elif type_2 == self._player_types[2]:
-            p2 = AgressiveAgent.AgressiveAgent(self)
+            p2 = AgressiveAgent.AgressiveAgent(self, 2)
         elif type_2 == self._player_types[3]:
-            p2 = PacifistAgent.PacifistAgent(self)
+            p2 = PacifistAgent.PacifistAgent(self, 2)
         elif type_2 == self._player_types[4]:
-            p2 = GreedyAgent.GreedyAgent(self)
+            p2 = GreedyAgent.GreedyAgent(self, 2)
         elif type_2 == self._player_types[5]:
-            p2 = AStar.AStar(self)
+            p2 = AStar.AStar(self, 2)
         elif type_2 == self._player_types[6]:
-            p2 = AStarRealTime.AStarRealTime(self)
+            p2 = AStarRealTime.AStarRealTime(self, 2)
         
         for t in self.t1:
             p1.add_territory(t)
@@ -132,14 +132,21 @@ class GameHandler():
 
     def players(self):
         return self._players
+    
+    def set_state(self, state):
+        p1, p2, conts = state
+        self._players = [p1, p2]
+        self._continents = conts
+        # self.print_state()
+
     # for debugging purpose
-    def print_state():
+    def print_state(self):
         space = "    "
         for i, p in enumerate(self._players):
             print("Player{}".format(i+1))
             print("{}Armies: {}".format(space, p.armies))
             print("{}Lands:".format(space))
             for t in p._territories:
-                print("{} tid: {}".format(space*2, t.id))
+                print("{} tid: {}".format(space*2, t.id()))
                 print("{}Armies: {}".format(space*3, t.n_armies))
 

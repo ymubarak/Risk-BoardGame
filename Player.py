@@ -3,9 +3,10 @@
 CONQUER_BONUS = 2
 
 class Player:
-    def __init__(self):
+    def __init__(self, pid):
         self._territories = []
         self._armies = 0
+        self._id = pid
 
 
     def add_territory(self, territory):
@@ -21,7 +22,11 @@ class Player:
             raise TypeError
         self._territories.remove(territory)
         territory.owner = None
+    
 
+    def id(self):
+        return self._id
+    
     @property
     def armies(self):
         return self._armies
@@ -38,6 +43,7 @@ class Player:
 
 
     def conquer(self, attacker, attacked, placement):
+        assert attacker in self._territories
         assert attacked in attacker.attackables()
         
         attacker.n_armies -= attacked.n_armies + placement
