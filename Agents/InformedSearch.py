@@ -1,11 +1,8 @@
 import heapq
 
 class InformedSearch:
-    def __init__(self, initial_state, controller, limit=0):
-        self.initial_state = initial_state
-        self.controller = controller
-        self._graph_size = len(self.controller.graph())
-        self.initial_state = initial_state
+    def __init__(self, graph_size, limit=0):
+        self._graph_size = graph_size
         self.g_function = lambda x: 0
         self.h_function = lambda x: 0
         self.limit = limit
@@ -26,8 +23,8 @@ class InformedSearch:
     def goal_test(self, state):
         return self._graph_size == len(state.player._territories)
 
-    def get_search_result(self):
-        last_state = self.serach()
+    def get_search_result(self, init_state):
+        last_state = self.serach(init_state)
         print("last state: ")
         last_state.print_state()
         if last_state.parent == None:   #no possible move
@@ -41,10 +38,10 @@ class InformedSearch:
         return last_state.attacker.id(), last_state.attacked.id(), last_state.placement
 
 
-    def serach(self):
+    def serach(self, init_state):
         print("in search")
-        self.initial_state.f_value = self.f_function(self.initial_state)
-        self.frontier = [self.initial_state]
+        init_state.f_value = self.f_function(init_state)
+        self.frontier = [init_state]
         self.explored = set()
         while self.frontier:
             heapq.heapify(self.frontier)
@@ -61,7 +58,7 @@ class InformedSearch:
 
             for neighbor in state.neighbors():
                 print("expand neighbor")
-                if self.limit > 0 and self.g_function(neighbor) > limit: # limit on depth
+                if self.limit > 0 and self.g_function(neighbor) > self.limit: # limit on depth
                     continue
                 if not (neighbor in (set(self.frontier) | self.explored)):
                     neighbor.f_value = self.f_function(neighbor)

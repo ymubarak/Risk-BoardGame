@@ -6,7 +6,7 @@ from Agents import Agent
 import time
 
 def gui():
-    file_path = "input/specification.txt"
+    file_path = "input/specification2.txt"
     handler = GameHandler(file_path)
     g = Game(handler)
     g.run()

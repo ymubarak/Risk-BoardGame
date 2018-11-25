@@ -64,7 +64,8 @@ class GameState:
         for t in self.player._territories:
             for attackble in t.attackables():
                 print(t.id(), ">>", attackble.id())
-                new_state = copy.copy(self)
+                p_shallow_copy = copy.copy(self.parent)
+                new_state = copy.deepcopy(self)
                 new_state.parent = self
                 self.simulate_attack(new_state, t.id(), attackble.id())
                 _neighbors.append(new_state)

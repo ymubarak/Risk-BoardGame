@@ -22,6 +22,7 @@ class GreedyAgent(Player, Agent):
         Player.__init__(self, pid)
         Agent.__init__(self, "GreedyAgent")
         self.controller = controller
+        self.informed_search = InformedSearch(len(self.controller.graph()))
         self.attacker = None
         self.placement = None
         self.attacked = None
@@ -41,14 +42,9 @@ class GreedyAgent(Player, Agent):
     def place_armies(self):
         agent_action = {}
 
-        player_copy = copy.deepcopy(self)
-        cont_copy = copy.deepcopy(self.controller.continents())
-        init_state = GameState(player_copy, cont_copy)
-        self.informed_search = InformedSearch(init_state, self.controller)
-
-        
+        init_state = GameState(self, self.controller.continents())
         self.informed_search.set_heuristic(self.heuristic)
-        next_state = self.informed_search.get_search_result()
+        next_state = self.informed_search.get_search_result(init_state)
         if next_state != None:
             attacker_id, attacked_id, placement = next_state
             self.attacker = self.get_territory_by_id(attacker_id)

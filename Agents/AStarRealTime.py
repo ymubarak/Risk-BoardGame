@@ -13,6 +13,7 @@ class AStarRealTime(Player, Agent):
         Player.__init__(self, pid)
         Agent.__init__(self, "AStarRealTime")
         self.controller = controller
+        self.informed_search = InformedSearch(len(self.controller.graph()), limit=3)
         self.attacker = None
         self.placement = None
         self.attacked = None
@@ -39,22 +40,16 @@ class AStarRealTime(Player, Agent):
     def place_armies(self):
         agent_action = {}
 
-        player_copy = copy.deepcopy(self)
-        cont_copy = copy.deepcopy(self.controller.continents())
-        init_state = GameState(player_copy, cont_copy)
-        self.informed_search = InformedSearch(init_state, self.controller, limit=3)
-
-        
+        init_state = GameState(self, self.controller.continents())
         self.informed_search.set_heuristic(self.heuristic)
-        self.informed_search.set_cost(self.cost)
-        next_state = self.informed_search.get_search_result()
+        next_state = self.informed_search.get_search_result(init_state)
         if next_state != None:
             attacker_id, attacked_id, placement = next_state
             self.attacker = self.get_territory_by_id(attacker_id)
             self.attacked = self.get_territory_by_id(attacked_id)
             self.placement = placement
             if self.armies != 0:
-                agent_action['placement'] = (attacker, self._armies)
+                agent_action['placement'] = (self.attacker, self._armies)
         elif self.armies != 0:
             self.attacker = None
             self.placement = None
