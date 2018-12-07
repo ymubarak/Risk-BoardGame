@@ -1,0 +1,14 @@
+
+Player 1's turn
+
+Place Armies / Attack !
+
+Player1
+Armies: 15
+Lands Acquistion:
+[=========      ]
+
+Player1
+Armies: 15
+Lands Acquistion:
+[=========      ]
