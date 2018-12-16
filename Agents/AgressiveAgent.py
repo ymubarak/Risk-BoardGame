@@ -3,17 +3,63 @@ from Agents.Agent import Agent
 
 
 class AgressiveAgent(Player, Agent):
-	def __init__(self):
-		Agent.__init__(self, "AgressiveAgent")
-		Player.__init__(self)
-		
-	def place_armies(self):
-		max_armies = sorted(self._territories, key=lambda x: x.n_armies, reverse=True)
-		min_vertex_numbers = sorted(min_armies, key=lambda x: x.id())
-		min_vertex_numbers[0].n_armies += self._armies
-		self._armies = 0
+    def __init__(self, controller, pid):
+        Agent.__init__(self, "PassiveAgent")
+        Player.__init__(self, pid)
+        self.controller = controller
+        
+    def place_armies(self):
+        agent_action = {}
+        if self._armies == 0:
+            agent_action['placement'] =()
+            return agent_action
+        territory = None
+        if not self._territories:
+            continents = self.controller.continents()
+            territory = self._init_placement(continents)
+        else:
+            max_armies = sorted(self._territories, key=lambda x: x.n_armies, reverse=True)
+            max_army = max_armies[0].n_armies
+            stop_point = 1
+            for i in range(1, len(max_armies)):
+                if max_armies[i].n_armies < max_army:
+                    stop_point = i
+                    break
+            max_armies = max_armies[:stop_point]
+            min_vertex_numbers = sorted(max_armies, key=lambda x: x.id())
+            territory = min_vertex_numbers[0]
+
+        
+        agent_action['placement'] = (territory, self._armies)
+        return agent_action
 
 
-	def attack(self):
-		# TODO
-		pass
+    def attack(self):
+
+        agent_action = {}
+
+        for c in self.controller.continents():
+            if c.owner != self and c.owner != None:
+                for t in c._territories:
+                    for nbr in t.neighbors():
+                        if t in nbr.attackables():
+                            placement = nbr.n_armies - t.n_armies
+                            agent_action['attack'] = (nbr, t, placement - 1)
+                            return agent_action
+
+        for t in self._territories:
+            candidates = t.attackables()
+            if candidates:
+                attacked = candidates[0]
+                placement = t.n_armies - attacked.n_armies 
+                agent_action['attack'] = (t, attacked, placement - 1)
+                return agent_action
+
+        return agent_action
+
+
+
+
+
+
+
